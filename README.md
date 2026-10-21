@@ -1,5 +1,18 @@
 # from_me_to_her
 
+## Development status
+
+The first local development slice is implemented: public page, staged reader
+authentication, owner login, private drafts/shared entries, and promise editing.
+Use fictional data only; production security, uploads, backups, lifecycle and lab
+exercises remain future milestones.
+
+- [Run locally and test](docs/local-development.md)
+- [Architecture and remaining work](docs/architecture.md)
+- [Security lab boundary](lab/README.md)
+
+The original project brief is preserved below.
+
 ## Project Memory Dump
 
 DO NOT FORGET THIS PROJECT.

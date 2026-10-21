@@ -1,0 +1,17 @@
+{
+  "name": "from-me-to-her",
+  "private": true,
+  "workspaces": [
+    "apps/public-web",
+    "apps/vault-web"
+  ],
+  "scripts": {
+    "dev:public": "npm run dev -w apps/public-web",
+    "dev:vault": "npm run dev -w apps/vault-web",
+    "build": "npm run build --workspaces",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1"
+  }
+}
