@@ -1,4 +1,4 @@
-name: Verify foundation
+name: Verify archive
 on: [push, pull_request]
 permissions:
   contents: read
@@ -17,6 +17,32 @@ jobs:
         working-directory: apps/api
       - run: alembic check
         working-directory: apps/api
+  postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: archive_test
+          POSTGRES_PASSWORD: fictional-ci-only
+          POSTGRES_DB: archive_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U archive_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_POSTGRES_URL: postgresql+psycopg://archive_test:fictional-ci-only@localhost:5432/archive_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r apps/api/requirements-dev.lock.txt
+      - run: pip install --no-deps -e apps/api
+      - run: pytest apps/api/tests/test_postgres.py -q
   web:
     runs-on: ubuntu-latest
     steps:
@@ -27,3 +53,12 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          python -m venv .venv
+          .venv/bin/pip install -r apps/api/requirements-dev.lock.txt
+          .venv/bin/pip install --no-deps -e apps/api
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e

@@ -1,7 +1,7 @@
 'use client';
 import { FormEvent, useEffect, useState } from 'react';
 
-type Session = { csrf: string; stage: number; role: string | null };
+type Session = { csrf: string; stage: number; role: string | null; mode: 'demo' | 'secure' };
 type PromiseData = {promise: string; date_made: string | null; status: string; context: string; still_intended: boolean; notes: string};
 type Entry = {id: string; title: string; body: string; category: string; shared: boolean; occurred_on: string | null; promise: PromiseData | null};
 const blank = {title: '', body: '', category: 'Letters', shared: false, occurred_on: null, promise: null} as Omit<Entry, 'id'>;
@@ -12,6 +12,7 @@ export default function Vault() {
   const [questions, setQuestions] = useState<{id:string;prompt:string}[]>([]);
   const [answers, setAnswers] = useState<Record<string,string>>({});
   const [owner, setOwner] = useState(false);
+  const [recovery, setRecovery] = useState(false);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [editing, setEditing] = useState<string | null>(null);
@@ -48,7 +49,10 @@ export default function Vault() {
     await run(async () => {
       if (!owner && session?.stage === 0) await api('/auth/gate1','POST',{answers});
       else if (!owner && session?.stage === 1) await api('/auth/gate2','POST',data);
-      else await api('/auth/login/' + (owner ? 'owner' : 'reader'),'POST',data);
+      else {
+        const result = await api('/auth/login/' + (owner ? 'owner' : 'reader'),'POST',data);
+        if (result.recovered) setNotice('Recovery code accepted. Other sessions were signed out. Replace a lost authenticator using the local admin command.');
+      }
       setAnswers({}); await refresh();
     });
   }
@@ -61,10 +65,10 @@ export default function Vault() {
   function updatePromise(patch: Partial<PromiseData>) {setDraft({...draft, promise:{...emptyPromise,...draft.promise,...patch}});}
 
   return <main>
-    <nav><a href="http://localhost:3000">from me, to her</a><span>THE PRIVATE ARCHIVE</span></nav>
+    <nav><a href={process.env.NEXT_PUBLIC_PUBLIC_SITE_URL || 'http://127.0.0.1:3000'}>from me, to her</a><span>THE PRIVATE ARCHIVE</span></nav>
     <header><p className="eyebrow">A PLACE FOR THE UNSENT</p><h1>{session?.role ? 'The things we keep.' : 'A little closer.'}</h1>
       <p>{session?.role ? 'Letters, memories, and everything in between.' : 'Some doors open one small step at a time.'}</p></header>
-    <div className="demo">Local preview · fictional accounts only</div>
+    {session?.mode === 'demo' && <div className="demo">Local preview · fictional accounts only</div>}
     {error && <p role="alert" className="error">{error}</p>}{notice && <p role="status">{notice}</p>}
     {!session && <button onClick={() => run(refresh)} disabled={busy}>Connect to archive</button>}
     {session && !session.role && <section className="gate">
@@ -73,7 +77,11 @@ export default function Vault() {
       <form onSubmit={unlock} key={`${owner}-${session.stage}`}>
         {!owner && session.stage === 0 ? questions.map(q => <label key={q.id}>{q.prompt}<input required maxLength={200} value={answers[q.id] || ''} onChange={e => setAnswers({...answers,[q.id]:e.target.value})}/></label>) :
           !owner && session.stage === 1 ? <><label>Anniversary<input name="anniversary" type="date" required/></label><label>His full name<input name="full_name" required maxLength={200}/></label></> :
-          <><label>Username<input name="username" autoComplete="username" required maxLength={100}/></label><label>Password<input name="password" type="password" autoComplete="current-password" required maxLength={200}/></label><label>Authenticator code<input name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" required/></label></>}
+          <><label>Username<input name="username" autoComplete="username" required maxLength={100}/></label><label>Password<input name="password" type="password" autoComplete="current-password" required maxLength={200}/></label>
+            {recovery ? <label>Recovery code<input key="recovery" name="recovery_code" autoComplete="off" pattern="[a-fA-F0-9]{32}" maxLength={32} required/></label> :
+              <label>Authenticator code<input key="totp" name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" required/></label>}
+            <button type="button" disabled={busy} onClick={() => setRecovery(!recovery)}>{recovery ? 'Use authenticator instead' : 'Use a recovery code'}</button>
+          </>}
         <button className="primary" disabled={busy || (!owner && session.stage === 0 && !questions.length)}>{busy ? 'One moment…' : 'Continue →'}</button>
       </form>
     </section>}

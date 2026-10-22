@@ -4,9 +4,9 @@ Public site (static Next.js export) → link to vault (Next.js) → same-origin 
 proxy → FastAPI modular backend → database. Private object storage and the
 scheduled backup/lifecycle process are the next infrastructure components.
 
-This first slice uses SQLite to avoid requiring Docker for a local trial.
-SQLAlchemy models and Alembic migrations are the path to PostgreSQL; production
-database validation is still outstanding. npm workspaces and package-lock.json
+The local demo uses SQLite to avoid requiring Docker for a local trial.
+SQLAlchemy models and Alembic migrations support PostgreSQL, with a dedicated CI
+integration job. npm workspaces and package-lock.json
 keep the two frontend dependencies reproducible; no separate package manager is required.
 
 ## Data and permissions
@@ -26,10 +26,18 @@ timesteps are updated atomically. Origin + session-bound CSRF checks protect wri
 Audit events contain action, actor ID, target ID, and timestamp; never bodies,
 answers, passwords, OTPs, or tokens. Production needs retention and monitoring.
 
+Account enrollment and factor replacement are local operator commands. TOTP
+secrets use authenticated encryption bound to account IDs. Recovery codes contain
+128 random bits, are stored as account-bound hashes, and are consumed atomically.
+Recovery sign-in revokes other sessions; factor replacement also invalidates every
+old recovery code. Secure mode requires PostgreSQL, HTTPS and an external encryption
+key and refuses demo accounts. See [account setup](account-setup.md).
+
 ## Next milestones
 
-1. Production identity provisioning, recovery, secret encryption, HTTPS, CSP,
-   trusted-proxy configuration, PostgreSQL integration and migration checks.
+1. Finish deployment hardening: CSP, live TLS/proxy validation, secret-key rotation
+   and production security review. Enrollment, recovery, encryption, HTTPS guards
+   and PostgreSQL CI checks are implemented.
 2. Private image storage with validated uploads and authorized downloads.
 3. Encrypted exports, manifests, integrity checks, and isolated restore tests.
 4. Owner-only 90-day keepalive and a resumable lifecycle state machine. Disable

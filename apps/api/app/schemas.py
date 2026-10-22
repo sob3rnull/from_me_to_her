@@ -48,4 +48,11 @@ class GateTwoInput(BaseModel):
 class LoginInput(BaseModel):
     username: str = Field(max_length=100)
     password: str = Field(max_length=200)
-    code: str = Field(pattern=r"^\d{6}$")
+    code: str | None = Field(default=None, pattern=r"^\d{6}$")
+    recovery_code: str | None = Field(default=None, pattern=r"^[a-fA-F0-9]{32}$")
+
+    @model_validator(mode="after")
+    def exactly_one_factor(self):
+        if (self.code is None) == (self.recovery_code is None):
+            raise ValueError("Provide exactly one authenticator or recovery code")
+        return self

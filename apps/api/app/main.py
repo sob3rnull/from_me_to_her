@@ -1,6 +1,6 @@
 import json
-import os
 import secrets
+from contextlib import asynccontextmanager
 from pathlib import Path
 from uuid import uuid4
 
@@ -8,22 +8,41 @@ import pyotp
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from sqlalchemy import create_engine, delete, select, update
 from sqlalchemy.orm import Session
+from starlette.middleware.trustedhost import TrustedHostMiddleware
+from urllib.parse import urlsplit
 
-from .models import Attempt, AuditEvent, BrowserSession, Entry, GateConfig, Promise, User
+from .models import Attempt, AuditEvent, BrowserSession, Entry, GateConfig, Promise, RecoveryCode, User
+from .accounts import recovery_digest
+from .config import Settings
+from .secret_box import load_box
 from .schemas import CATEGORIES, EntryInput, GateOneInput, GateTwoInput, LoginInput
 from .security import digest, normalize, now, passwords, token
 
 
-def create_app(database_url=None, origin=None):
-    # This milestone intentionally has no production mode or production credentials.
-    origin = origin or os.getenv("VAULT_ORIGIN", "http://localhost:3001")
-    if origin not in {"http://localhost:3001", "http://127.0.0.1:3001"}:
-        raise RuntimeError("This development milestone only supports a loopback vault origin")
+def create_app(database_url=None, origin=None, secret_box=None):
+    settings = Settings.from_env(origin)
+    origin = settings.origin
+    box = secret_box or load_box(settings)
     Path("private-data").mkdir(exist_ok=True)
-    url = database_url or os.getenv("DATABASE_URL", "sqlite:///./private-data/archive.db")
+    url = database_url or settings.database_url
     engine = create_engine(url, connect_args={"check_same_thread": False} if url.startswith("sqlite") else {})
-    app = FastAPI(title="from_me_to_her — local development API", docs_url=None, redoc_url=None)
+
+    @asynccontextmanager
+    async def lifespan(application):
+        if settings.secure:
+            with Session(engine) as db:
+                for user in db.scalars(select(User)):
+                    if user.is_demo:
+                        raise RuntimeError("Secure mode refuses demo accounts; use a fresh database")
+                    box.decrypt(user.totp_secret, user.id)
+        yield
+
+    app = FastAPI(title="from_me_to_her", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
     app.state.engine = engine
+    app.state.box = box
+    app.state.settings = settings
+    if settings.secure:
+        app.add_middleware(TrustedHostMiddleware, allowed_hosts=[urlsplit(origin).hostname])
     dummy_hash = passwords.hash(token())
 
     def database():
@@ -34,7 +53,7 @@ def create_app(database_url=None, origin=None):
         db.add(AuditEvent(id=str(uuid4()), actor_id=actor, action=action, target_id=target, created_at=now()))
 
     def session(request: Request, db: Session = Depends(database)):
-        raw = request.cookies.get("vault_session", "")
+        raw = request.cookies.get(settings.cookie_name, "")
         row = db.get(BrowserSession, digest(raw))
         if not row or row.expires_at <= now():
             raise HTTPException(401, "Session expired or missing")
@@ -68,31 +87,36 @@ def create_app(database_url=None, origin=None):
             raise HTTPException(429, "Too many attempts. Try again later.")
 
     def set_cookie(response, raw):
-        response.set_cookie("vault_session", raw, httponly=True, samesite="strict", secure=False, path="/", max_age=3600)
+        response.set_cookie(settings.cookie_name, raw, httponly=True, samesite="strict", secure=settings.secure, path="/", max_age=3600)
 
     def gate_config(db):
         config = db.get(GateConfig, 1)
         if not config:
-            raise HTTPException(503, "Initialize the fictional local demo first")
+            raise HTTPException(503, "Archive setup is incomplete")
         return config
 
     @app.middleware("http")
     async def boundary(request, call_next):
+        if settings.secure and request.url.scheme != "https":
+            from fastapi.responses import JSONResponse
+            return JSONResponse({"detail": "HTTPS required"}, status_code=400)
         if request.method not in {"GET", "HEAD", "OPTIONS"} and request.headers.get("origin") != origin:
             from fastapi.responses import JSONResponse
             return JSONResponse({"detail": "Invalid request origin"}, status_code=403)
         response = await call_next(request)
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Content-Type-Options"] = "nosniff"
+        if settings.secure:
+            response.headers["Strict-Transport-Security"] = "max-age=31536000"
         return response
 
     @app.get("/api/health")
     def health():
-        return {"status": "ok", "mode": "local-development"}
+        return {"status": "ok", "mode": settings.mode}
 
     @app.get("/api/auth/session")
     def bootstrap(request: Request, response: Response, db: Session = Depends(database)):
-        row = db.get(BrowserSession, digest(request.cookies.get("vault_session", "")))
+        row = db.get(BrowserSession, digest(request.cookies.get(settings.cookie_name, "")))
         if not row or row.expires_at <= now():
             throttle(db, "bootstrap:" + request.client.host, 100)
             raw = token()
@@ -101,7 +125,7 @@ def create_app(database_url=None, origin=None):
             db.commit()
             set_cookie(response, raw)
         user = db.get(User, row.user_id) if row.user_id else None
-        return {"csrf": row.csrf, "stage": row.stage, "role": user.role if user else None}
+        return {"csrf": row.csrf, "stage": row.stage, "role": user.role if user else None, "mode": settings.mode}
 
     @app.get("/api/auth/challenge")
     def challenge(row=Depends(session), db: Session = Depends(database)):
@@ -153,11 +177,24 @@ def create_app(database_url=None, origin=None):
         throttle(db, "login-user:" + normalize(data.username))
         if kind not in {"owner", "reader"} or row.user_id or (kind == "reader" and row.stage != 2):
             raise HTTPException(403, "Invalid login stage")
-        user = db.scalar(select(User).where(User.username == normalize(data.username)))
+        user = db.scalar(select(User).where(User.username == normalize(data.username)).with_for_update())
         valid_password = passwords.verify(data.password, user.password_hash if user else dummy_hash)
         step = now() // 30
-        valid = user and valid_password and user.role == kind.upper() and pyotp.TOTP(user.totp_secret).verify(data.code)
-        if valid:
+        valid = user and valid_password and user.role == kind.upper() and not (settings.secure and user.is_demo)
+        recovered = False
+        if valid and data.recovery_code:
+            consumed = db.execute(delete(RecoveryCode).where(
+                RecoveryCode.user_id == user.id,
+                RecoveryCode.code_hash == recovery_digest(user.id, data.recovery_code)))
+            valid = consumed.rowcount == 1
+            recovered = bool(valid)
+        elif valid:
+            try:
+                secret = box.decrypt(user.totp_secret, user.id)
+            except ValueError:
+                raise HTTPException(503, "Authenticator configuration unavailable")
+            valid = secrets.compare_digest(pyotp.TOTP(secret).at(step * 30), data.code)
+        if valid and not recovered:
             # Atomic compare-and-set prevents concurrent reuse of the same TOTP step.
             accepted = db.execute(update(User).where(User.id == user.id, User.last_totp_step < step).values(last_totp_step=step))
             valid = accepted.rowcount == 1
@@ -167,18 +204,21 @@ def create_app(database_url=None, origin=None):
             raise HTTPException(403, "Unable to sign in")
         raw = token()
         new = BrowserSession(token_hash=digest(raw), csrf=token(), stage=3, user_id=user.id, expires_at=now() + 3600)
+        if recovered:
+            db.execute(delete(BrowserSession).where(BrowserSession.user_id == user.id))
+            audit(db, "RECOVERY_CODE_USED", user.id)
         db.delete(row)
         db.add(new)
         audit(db, "SESSION_CREATED", user.id)
         db.commit()
         set_cookie(response, raw)
-        return {"csrf": new.csrf, "role": user.role, "stage": 3}
+        return {"csrf": new.csrf, "role": user.role, "stage": 3, "recovered": recovered}
 
     @app.post("/api/auth/logout")
     def logout(response: Response, row=Depends(session), db: Session = Depends(database)):
         db.delete(row)
         db.commit()
-        response.delete_cookie("vault_session", path="/")
+        response.delete_cookie(settings.cookie_name, path="/", secure=settings.secure, httponly=True, samesite="strict")
         return {"ok": True}
 
     @app.get("/api/categories")

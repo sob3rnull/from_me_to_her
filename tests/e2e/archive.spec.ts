@@ -54,3 +54,21 @@ test('public page and owner → draft → shared → reader flow', async ({page,
   await expect(reader.getByRole('heading', {name:'Step 1 of 3'})).toBeVisible();
   await context.close();
 });
+
+test('recovery code signs in once and rejects reuse', async ({page}) => {
+  await page.goto('/');
+  await page.getByRole('button', {name:'Owner',exact:true}).click();
+  await page.getByLabel('Username').fill('demo-owner');
+  await page.getByLabel('Password', {exact:true}).fill('fictional-demo-only');
+  await page.getByRole('button', {name:'Use a recovery code'}).click();
+  await page.getByLabel('Recovery code', {exact:true}).fill('a'.repeat(32));
+  await page.getByRole('button', {name:/Continue/}).click();
+  await expect(page.getByRole('heading', {name:'Leave a little something'})).toBeVisible();
+  await expect(page.getByRole('status')).toContainText('Recovery code accepted');
+  await page.getByRole('button', {name:'Sign out'}).click();
+  await page.getByLabel('Username').fill('demo-owner');
+  await page.getByLabel('Password', {exact:true}).fill('fictional-demo-only');
+  await page.getByLabel('Recovery code', {exact:true}).fill('a'.repeat(32));
+  await page.getByRole('button', {name:/Continue/}).click();
+  await expect(page.getByRole('alert').filter({hasText:'Unable to sign in'})).toBeVisible();
+});

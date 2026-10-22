@@ -4,9 +4,10 @@ This milestone is for fictional local data only. It includes the public page,
 owner/reader login, weighted reader gates, password + TOTP, entries, promises,
 draft/share editing, database migrations, and security regression tests.
 
-Not implemented: production deployment, account enrollment/recovery, encrypted
-TOTP secret storage, uploads, backup/restore, keepalive, deletion, chat, or lab
-exercises. Do not put real archive content into this development database.
+Account enrollment/recovery and encrypted TOTP storage are now implemented; see
+[account setup](account-setup.md). Production deployment, uploads, backup/restore,
+keepalive, deletion, chat and lab exercises remain unfinished. Do not put real
+archive content into this development database.
 
 ## Setup (PowerShell, repository root)
 
@@ -89,12 +90,12 @@ and use a fresh temporary database, never the local archive database.
 
 - Cookies lack Secure only because this preview uses loopback HTTP. Production
   requires HTTPS, host-only Secure cookies, a configured trusted proxy and CSP.
-- The fixed demo TOTP secret is public test data and stored as plaintext locally.
-  Production needs encrypted secrets and controlled enrollment/recovery.
+- The fixed demo TOTP secret is public test data, now encrypted at rest.
+  For existing demo databases, run `python -m app.admin encrypt-secrets` after migrating.
 - Gates and logins are rate limited in the database. Behind the local Next proxy,
   clients share the backend's loopback address. Trusted proxy/IP handling is not built.
 - The archive returns the latest 100 entries; pagination is a later addition.
-- SQLite was tested locally. PostgreSQL support is provisioned through SQLAlchemy
-  and psycopg, but has not been integration-tested yet.
+- SQLite is tested locally. A separate GitHub Actions job runs real PostgreSQL
+  migrations, permission checks and concurrent recovery-code consumption.
 - No offline caching, localStorage archive persistence, public archive assets,
   cloud credentials, or deletion operation is included.

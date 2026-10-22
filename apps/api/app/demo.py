@@ -6,16 +6,23 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from .models import GateConfig, User
 from .security import normalize, passwords
+from .config import Settings
+from .secret_box import load_box
 
 
-def seed(engine):
+def seed(engine, box=None):
+    settings = Settings.from_env()
+    if settings.secure:
+        raise RuntimeError("Demo seeding is forbidden in secure mode")
+    box = box or load_box(settings)
     with Session(engine) as db:
         if db.scalar(select(User.id).limit(1)) or db.get(GateConfig, 1):
             raise RuntimeError("Refusing to overwrite an initialized database")
         for role in ("OWNER", "READER"):
-            db.add(User(id=str(uuid4()), username="demo-" + role.lower(), role=role,
+            user_id = str(uuid4())
+            db.add(User(id=user_id, username="demo-" + role.lower(), role=role, is_demo=True,
                         password_hash=passwords.hash("fictional-demo-only"),
-                        totp_secret="JBSWY3DPEHPK3PXP"))
+                        totp_secret=box.encrypt("JBSWY3DPEHPK3PXP", user_id)))
         questions = [
             {"id": "planet", "prompt": "Demo: which planet has rings?", "weight": 2, "answer": "saturn"},
             {"id": "drink", "prompt": "Demo: tea or coffee?", "weight": 1, "answer": "tea"},

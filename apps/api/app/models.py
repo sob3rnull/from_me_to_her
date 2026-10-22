@@ -11,10 +11,17 @@ class User(Base):
     __tablename__ = "users"
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     username: Mapped[str] = mapped_column(String(100), unique=True)
-    role: Mapped[str] = mapped_column(String(10))
+    role: Mapped[str] = mapped_column(String(10), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(Text)
     totp_secret: Mapped[str] = mapped_column(Text)
     last_totp_step: Mapped[int] = mapped_column(Integer, default=-1)
+    is_demo: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+
+
+class RecoveryCode(Base):
+    __tablename__ = "recovery_codes"
+    code_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
 
 
 class BrowserSession(Base):
