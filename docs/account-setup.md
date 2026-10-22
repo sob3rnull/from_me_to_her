@@ -2,8 +2,9 @@
 
 This milestone adds controlled enrollment, encrypted authenticator secrets,
 single-use recovery codes, and HTTPS configuration guards. It is not a completed
-production deployment: private media, verified backups, lifecycle, CSP and a
-deployment security review are still outstanding. Continue using fictional data.
+production deployment: private media, verified backups, lifecycle and a live-host
+security review are still outstanding. Continue using fictional data. CSP and an
+isolated HTTPS rehearsal are described in [deployment hardening](deployment-hardening.md).
 
 ## Existing local demo
 
@@ -75,7 +76,8 @@ Keep the key in a secret manager and retain a separate recovery copy. Secure mod
 never generates a fallback key, refuses demo accounts or unreadable TOTP secrets
 at startup, and rejects HTTP requests. A schema migration is required before startup.
 The key must be the same for enrollment, the API and maintenance commands. Key
-rotation is not implemented; do not replace the variable without migrating ciphertext.
+rotation uses an explicit maintenance command; do not replace the variable without
+following the [rotation procedure](deployment-hardening.md#encryption-key-rotation).
 
 Set `NEXT_PUBLIC_VAULT_URL` and `NEXT_PUBLIC_PUBLIC_SITE_URL` to the intended HTTPS
 origins before building the frontends. These URLs are public and baked into builds.
@@ -92,7 +94,8 @@ uvicorn app.main:app --host 127.0.0.1 --port 8000 --proxy-headers --forwarded-al
 
 Never use `--forwarded-allow-ips '*'`, expose port 8000 publicly, or configure Caddy
 to trust client-supplied forwarding headers. Demo mode continues using
-`--no-proxy-headers`. The Caddy template has not been deployed or live-validated.
+`--no-proxy-headers`. The Caddy template is exercised by the isolated HTTPS test;
+public DNS, certificate issuance/renewal and a real host firewall remain unverified.
 Secure mode sets `__Host-vault_session` cookies with Secure, HttpOnly, SameSite=Strict
 and no Domain attribute. It also enforces origin/CSRF checks and an allowed Host.
 

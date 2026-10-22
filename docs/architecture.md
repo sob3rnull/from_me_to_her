@@ -35,9 +35,11 @@ key and refuses demo accounts. See [account setup](account-setup.md).
 
 ## Next milestones
 
-1. Finish deployment hardening: CSP, live TLS/proxy validation, secret-key rotation
-   and production security review. Enrollment, recovery, encryption, HTTPS guards
-   and PostgreSQL CI checks are implemented.
+1. Complete live-host validation and production security review. Enrollment,
+   recovery, encryption-key rotation, nonce-based vault CSP and an isolated
+   Caddy HTTPS rehearsal are implemented. CI runs the rehearsal with PostgreSQL;
+   public DNS, public certificates and host firewall validation need a real host.
+   See [deployment hardening](deployment-hardening.md).
 2. Private image storage with validated uploads and authorized downloads.
 3. Encrypted exports, manifests, integrity checks, and isolated restore tests.
 4. Owner-only 90-day keepalive and a resumable lifecycle state machine. Disable

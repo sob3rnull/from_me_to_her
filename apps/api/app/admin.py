@@ -16,6 +16,33 @@ from .secret_box import PREFIX, load_box
 from .security import normalize, now, passwords
 
 
+def verify_secrets(db, box):
+    users = list(db.scalars(select(User)))
+    for user in users:
+        box.decrypt(user.totp_secret, user.id, primary_only=True)
+    return len(users)
+
+
+def rotate_secrets(db, box):
+    """Operator-only maintenance transaction; callers must stop API/other writers."""
+    try:
+        users = list(db.scalars(select(User).order_by(User.id).with_for_update()))
+        # Validate every old ciphertext before modifying any account.
+        replacements = [(user, box.encrypt(box.decrypt(user.totp_secret, user.id), user.id)) for user in users]
+        for user, ciphertext in replacements:
+            user.totp_secret = ciphertext
+        db.flush()
+        db.expire_all()
+        count = verify_secrets(db, box)
+        db.execute(delete(BrowserSession))
+        db.add(AuditEvent(id=str(uuid4()), action="TOTP_KEY_ROTATED", created_at=now()))
+        db.commit()
+        return count
+    except Exception:
+        db.rollback()
+        raise
+
+
 def encrypt_legacy_secrets(db, box):
     changed = 0
     for user in db.scalars(select(User)):
@@ -67,6 +94,9 @@ def main():
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("keygen", help="Print a fresh Fernet key; store outside Git")
     commands.add_parser("encrypt-secrets", help="Encrypt legacy demo secrets and revoke old sessions")
+    rotation = commands.add_parser("rotate-secrets", help="Re-encrypt all TOTP secrets with the primary key and revoke all sessions")
+    rotation.add_argument("--offline", action="store_true", required=True, help="Confirm API and all other writers are stopped for maintenance")
+    commands.add_parser("verify-secrets", help="Verify every TOTP secret using only the primary encryption key")
     commands.add_parser("configure-gates", help="Enter private gate questions and answers interactively")
     create = commands.add_parser("enroll", help="Create one owner or reader after TOTP confirmation")
     create.add_argument("--username", required=True)
@@ -84,6 +114,12 @@ def main():
         with Session(engine) as db:
             if args.command == "encrypt-secrets":
                 print(f"Encrypted {encrypt_legacy_secrets(db, box)} legacy secrets.")
+            elif args.command == "rotate-secrets":
+                if not settings.encryption_key or not settings.previous_encryption_key:
+                    raise ValueError("Set the new primary and previous encryption keys before rotating")
+                print(f"Rotated and verified {rotate_secrets(db, box)} secrets; all sessions revoked.")
+            elif args.command == "verify-secrets":
+                print(f"Verified {verify_secrets(db, box)} secrets with the primary key only.")
             elif args.command == "configure-gates":
                 count = int(input("Number of questions (1–10): "))
                 if not 1 <= count <= 10:

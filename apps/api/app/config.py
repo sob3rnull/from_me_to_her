@@ -10,6 +10,7 @@ class Settings:
     origin: str
     database_url: str = field(repr=False)
     encryption_key: str | None = field(default=None, repr=False)
+    previous_encryption_key: str | None = field(default=None, repr=False)
 
     @property
     def secure(self):
@@ -25,6 +26,9 @@ class Settings:
         origin = origin or os.getenv("VAULT_ORIGIN", "http://localhost:3001")
         database = os.getenv("DATABASE_URL", "sqlite:///./private-data/archive.db")
         key = os.getenv("TOTP_ENCRYPTION_KEY")
+        previous_key = os.getenv("TOTP_PREVIOUS_ENCRYPTION_KEY")
+        if previous_key and (not key or previous_key == key):
+            raise ValueError("Rotation requires distinct primary and previous encryption keys")
         if mode not in {"demo", "secure"}:
             raise ValueError("APP_MODE must be demo or secure")
         parsed = urlsplit(origin)
@@ -37,4 +41,4 @@ class Settings:
                 raise ValueError("Secure mode requires PostgreSQL and TOTP_ENCRYPTION_KEY")
         elif origin not in {"http://localhost:3001", "http://127.0.0.1:3001"}:
             raise ValueError("Demo mode requires a loopback vault origin")
-        return cls(mode, origin, database, key)
+        return cls(mode, origin, database, key, previous_key)

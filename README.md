@@ -10,6 +10,7 @@ exercises remain future milestones.
 - [Run locally and test](docs/local-development.md)
 - [Architecture and remaining work](docs/architecture.md)
 - [Account enrollment, recovery and HTTPS preparation](docs/account-setup.md)
+- [CSP, key rotation and HTTPS verification](docs/deployment-hardening.md)
 - [Security lab boundary](lab/README.md)
 
 The original project brief is preserved below.

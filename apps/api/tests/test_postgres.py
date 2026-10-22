@@ -14,6 +14,8 @@ from sqlalchemy.engine import make_url
 from app.demo import seed
 from app.main import create_app
 from app.secret_box import SecretBox
+from app.admin import rotate_secrets, verify_secrets
+from sqlalchemy.orm import Session
 from test_accounts import issue_codes
 from test_security import client, entry, login
 
@@ -50,6 +52,14 @@ def test_postgres_migrations_permissions_and_atomic_recovery(monkeypatch):
             result = list(pool.map(lambda c: c.post('/api/auth/login/owner',json=data).status_code, clients))
         assert sorted(result) == [200,403]
         assert owner.get('/api/entries').status_code == 401
+        new_key = Fernet.generate_key()
+        transition = SecretBox(new_key)
+        transition.reader = application.state.box.reader
+        with Session(application.state.engine) as db:
+            assert rotate_secrets(db, transition) == 2
+            assert verify_secrets(db, SecretBox(new_key)) == 2
+        for c in clients:
+            assert c.get('/api/entries').status_code == 401
     finally:
         if application:
             application.state.engine.dispose()
