@@ -92,8 +92,9 @@ and use a fresh temporary database, never the local archive database.
   requires HTTPS, host-only Secure cookies, a configured trusted proxy and CSP.
 - The fixed demo TOTP secret is public test data, now encrypted at rest.
   For existing demo databases, run `python -m app.admin encrypt-secrets` after migrating.
-- Gates and logins are rate limited in the database. Behind the local Next proxy,
-  clients share the backend's loopback address. Trusted proxy/IP handling is not built.
+- Gates and logins are rate limited in the database. Behind the local demo's Next
+  proxy, clients share the backend's loopback address. Secure deployments use the
+  tested Caddy-to-Uvicorn trust boundary; see [deployment hardening](deployment-hardening.md).
 - The archive returns the latest 100 entries; pagination is a later addition.
 - SQLite is tested locally. A separate GitHub Actions job runs real PostgreSQL
   migrations, permission checks and concurrent recovery-code consumption.
