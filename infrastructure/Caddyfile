@@ -1,0 +1,24 @@
+# Deployment template; also exercised by tests/e2e/https_stack.py.
+# PUBLIC_HOST and VAULT_HOST must be distinct real DNS names pointing here.
+# PUBLIC_ROOT must point to apps/public-web/out after a production build.
+{$PUBLIC_HOST} {
+    root * "{$PUBLIC_ROOT}"
+    file_server
+    header X-Content-Type-Options nosniff
+}
+
+{$VAULT_HOST} {
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy no-referrer
+        Cache-Control no-store
+    }
+    handle /api/* {
+        reverse_proxy 127.0.0.1:{$API_PORT:8000}
+    }
+    handle {
+        reverse_proxy 127.0.0.1:{$VAULT_PORT:3001}
+    }
+}
