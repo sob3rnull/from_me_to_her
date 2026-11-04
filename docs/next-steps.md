@@ -320,9 +320,12 @@ The deployment sequence will be:
    `DATABASE_URL`, the HTTPS `VAULT_ORIGIN`, and a newly generated
    `TOTP_ENCRYPTION_KEY`. Use the same key for API and operator commands.
 4. Apply migrations, configure private gates and enroll the two real accounts.
-5. Set `NEXT_PUBLIC_VAULT_URL` and `NEXT_PUBLIC_PUBLIC_SITE_URL` to the selected
-   origins **before** building the frontends. These variables contain public URLs,
-   never secrets.
+5. Set `NEXT_PUBLIC_VAULT_URL`, `NEXT_PUBLIC_PUBLIC_SITE_URL` and a long secret
+   `DOOR_PHRASE` **before** building the frontends. The public site has no visible link
+   to the vault: the final full stop in its footer opens a prompt, and only the phrase
+   decrypts the vault address (the build refuses a real vault URL without one). This only
+   hides the entrance; the gates, passwords and 2FA are the actual security. The two
+   `NEXT_PUBLIC_*` variables are public URLs; `DOOR_PHRASE` is a secret and stays out of Git.
 6. Configure `PUBLIC_HOST`, `VAULT_HOST` and `PUBLIC_ROOT` for the Caddy template.
    Start the API/Next services on loopback, then Caddy on public HTTPS.
 7. Verify DNS, public certificate issuance and renewal, HTTP-to-HTTPS redirects,

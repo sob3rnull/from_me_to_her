@@ -10,7 +10,11 @@ test('public page and owner → draft → shared → reader flow', async ({page,
   await page.goto('http://127.0.0.1:3000');
   await expect(page.getByRole('heading', {level:1})).toContainText('Some things');
   await page.screenshot({path:'test-results/public-desktop.png', fullPage:true});
-  await page.getByRole('link', {name:/little door/}).click();
+  await expect(page.getByRole('link', {name:/door|vault/i})).toHaveCount(0); // no visible entrance
+  await page.getByRole('button', {name:'Knock'}).click();
+  await page.getByLabel('Who is there?').fill('open sesame'); // fictional demo phrase
+  await page.getByRole('button', {name:'Try it'}).click();
+  await page.waitForURL(/localhost:3001/);
   await page.getByRole('button', {name:'Owner', exact:true}).click();
   await page.getByLabel('Username').fill('demo-owner');
   await page.getByLabel('Password', {exact:true}).fill('fictional-demo-only');
