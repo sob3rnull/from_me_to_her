@@ -1,8 +1,6 @@
-import Link from 'next/link';
-
 export default function NotFound() {
-  return <section className="page">
+  return <section className="plain">
     <h1>Nothing here.</h1>
-    <p className="lede">That page does not exist, or it has gone for a walk. <Link href="/">Back to the front page</Link>.</p>
+    <p>That page has gone for a walk. <a href="/">Back to the notebook</a>.</p>
   </section>;
 }
