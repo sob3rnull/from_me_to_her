@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { NOTES, formatDate } from '../lib/notes';
+import { DREAMS, NOTES } from '../lib/writing';
 import DreamSheet from './DreamSheet';
 
 export default function Home() {
@@ -16,14 +16,13 @@ export default function Home() {
           And a website that is still figuring itself out.
         </p>
       </div>
-      <DreamSheet />
+      <DreamSheet dreams={DREAMS.map(dream => dream.text)} />
     </section>
 
     <section className="recent">
-      <h2>Recent notes</h2>
+      <h2>From the notebook</h2>
       <ul className="entries">
         {NOTES.slice(0, 3).map(note => <li key={note.slug}>
-          <time dateTime={note.date}>{formatDate(note.date)}</time>
           <Link href={`/notes/${note.slug}/`}>{note.title}</Link>
           <p>{note.summary}</p>
         </li>)}

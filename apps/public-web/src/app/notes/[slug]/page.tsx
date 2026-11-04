@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { NOTES, bySlug, formatDate } from '../../../lib/notes';
+import { NOTES, bySlug } from '../../../lib/writing';
 
 export const dynamicParams = false;
 export const generateStaticParams = () => NOTES.map(note => ({ slug: note.slug }));
@@ -15,16 +15,15 @@ export default async function NotePage({ params }: { params: Promise<{ slug: str
   const note = bySlug((await params).slug);
   if (!note) notFound();
   const index = NOTES.indexOf(note);
-  const newer = NOTES[index - 1];
-  const older = NOTES[index + 1];
+  const previous = NOTES[index - 1];
+  const next = NOTES[index + 1];
   return <article className="page note-page">
     <p className="crumb"><Link href="/notes/">Notes</Link></p>
     <h1>{note.title}</h1>
-    <time dateTime={note.date}>{formatDate(note.date)}</time>
-    <div className="prose">{note.body.map((paragraph, i) => <p key={i}>{paragraph}</p>)}</div>
+    <div className="prose"><p>{note.body}</p></div>
     <nav className="pager" aria-label="More notes">
-      {older ? <Link href={`/notes/${older.slug}/`} rel="prev">Older: {older.title}</Link> : <span />}
-      {newer ? <Link href={`/notes/${newer.slug}/`} rel="next">Newer: {newer.title}</Link> : <span />}
+      {previous ? <Link href={`/notes/${previous.slug}/`} rel="prev">Previous: {previous.title}</Link> : <span />}
+      {next ? <Link href={`/notes/${next.slug}/`} rel="next">Next: {next.title}</Link> : <span />}
     </nav>
   </article>;
 }
