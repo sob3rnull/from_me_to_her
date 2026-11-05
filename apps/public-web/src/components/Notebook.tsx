@@ -57,7 +57,6 @@ export default function Notebook({ content }: { content: Content }) {
 
   const [wide, setWide] = useState(true);
   const [spread, setSpread] = useState(0);
-  const [turning, setTurning] = useState<number | null>(null);
   const [lifting, setLifting] = useState<number[]>([]);
   const liftTimers = useRef<Record<number, number>>({});
   const [ready, setReady] = useState(false);
@@ -65,7 +64,6 @@ export default function Notebook({ content }: { content: Content }) {
   const spreadRef = useRef(0);
   const prevSpread = useRef(0);
   const stepper = useRef<number | undefined>(undefined);
-  const turnTimer = useRef<number | undefined>(undefined);
   const swipe = useRef<{ x: number; y: number } | null>(null);
 
   const spreadOf = useCallback((page: number, w: boolean) => (w ? Math.ceil(page / 2) : page), []);
@@ -128,8 +126,7 @@ export default function Notebook({ content }: { content: Content }) {
       mq.removeEventListener('change', onLayout);
       window.removeEventListener('hashchange', onHash);
       window.clearInterval(stepper.current);
-      window.clearTimeout(turnTimer.current);
-      Object.values(liftTimers.current).forEach(id => window.clearTimeout(id));
+        Object.values(liftTimers.current).forEach(id => window.clearTimeout(id));
     };
   }, [n, spreadOf, pageOf, goToSpread]);
 
@@ -138,9 +135,6 @@ export default function Notebook({ content }: { content: Content }) {
     const prev = prevSpread.current;
     if (prev === spread) return;
     const leaf = Math.min(prev, spread);
-    setTurning(leaf);
-    window.clearTimeout(turnTimer.current);
-    turnTimer.current = window.setTimeout(() => setTurning(null), TURN_MS + 100);
     setLifting(list => (list.includes(leaf) ? list : [...list, leaf]));
     window.clearTimeout(liftTimers.current[leaf]);
     liftTimers.current[leaf] = window.setTimeout(() => setLifting(list => list.filter(k => k !== leaf)), TURN_MS + 100);
@@ -206,7 +200,9 @@ export default function Notebook({ content }: { content: Content }) {
             const front = wide ? 2 * k : k;
             const back = wide ? 2 * k + 1 : null;
             const flipped = k < spread;
-            const z = turning === k ? 999 : flipped ? k : leafCount - k;
+            // Every page still in the air stays above the stacks, in the order it will land.
+            const base = flipped ? k : leafCount - k;
+            const z = lifting.includes(k) ? 500 + base : base;
             const cls = ['leaf', flipped ? 'flipped' : '', Math.abs(k - spread) <= 3 ? 'near' : '', lifting.includes(k) ? 'lifting' : ''].join(' ');
             return (
               <div key={k} className={cls} style={{ zIndex: z }}>

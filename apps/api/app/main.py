@@ -178,8 +178,9 @@ def create_app(database_url=None, origin=None, secret_box=None):
         if kind not in {"owner", "reader"} or row.user_id or (kind == "reader" and row.stage != 2):
             raise HTTPException(403, "Invalid login stage")
         user = db.scalar(select(User).where(User.username == normalize(data.username)).with_for_update())
-        valid_password = passwords.verify(data.password, user.password_hash if user else dummy_hash)
+        # Take the TOTP step before the slow password hash so a 30s rollover during hashing can't reject a code that was fresh on arrival.
         step = now() // 30
+        valid_password = passwords.verify(data.password, user.password_hash if user else dummy_hash)
         valid = user and valid_password and user.role == kind.upper() and not (settings.secure and user.is_demo)
         recovered = False
         if valid and data.recovery_code:
