@@ -43,6 +43,9 @@ function buildDefs(c: Content): Def[] {
 const pageNumber = (index: number, def: Def) =>
   index >= 2 && def.kind !== 'blank' && def.kind !== 'back' ? String(index - 1) : '';
 
+// Keep in step with --turn in style.css.
+const TURN_MS = 1400;
+
 export default function Notebook({ content }: { content: Content }) {
   const defs = useMemo(() => buildDefs(content), [content]);
   const n = defs.length;
@@ -55,6 +58,8 @@ export default function Notebook({ content }: { content: Content }) {
   const [wide, setWide] = useState(true);
   const [spread, setSpread] = useState(0);
   const [turning, setTurning] = useState<number | null>(null);
+  const [lifting, setLifting] = useState<number[]>([]);
+  const liftTimers = useRef<Record<number, number>>({});
   const [ready, setReady] = useState(false);
   const wideRef = useRef(true);
   const spreadRef = useRef(0);
@@ -84,7 +89,7 @@ export default function Notebook({ content }: { content: Content }) {
       spreadRef.current = next;
       setSpread(next);
       if (next === to) window.clearInterval(stepper.current);
-    }, 120);
+    }, 150);
   }, [n]);
 
   const goToPage = useCallback((page: number) => goToSpread(spreadOf(page, wideRef.current)), [goToSpread, spreadOf]);
@@ -124,16 +129,21 @@ export default function Notebook({ content }: { content: Content }) {
       window.removeEventListener('hashchange', onHash);
       window.clearInterval(stepper.current);
       window.clearTimeout(turnTimer.current);
+      Object.values(liftTimers.current).forEach(id => window.clearTimeout(id));
     };
   }, [n, spreadOf, pageOf, goToSpread]);
 
-  // The leaf being turned sits on top of the pile while it moves.
+  // The leaf being turned sits on top of the pile and lifts off it while it moves.
   useEffect(() => {
     const prev = prevSpread.current;
     if (prev === spread) return;
-    setTurning(Math.min(prev, spread));
+    const leaf = Math.min(prev, spread);
+    setTurning(leaf);
     window.clearTimeout(turnTimer.current);
-    turnTimer.current = window.setTimeout(() => setTurning(null), 950);
+    turnTimer.current = window.setTimeout(() => setTurning(null), TURN_MS + 100);
+    setLifting(list => (list.includes(leaf) ? list : [...list, leaf]));
+    window.clearTimeout(liftTimers.current[leaf]);
+    liftTimers.current[leaf] = window.setTimeout(() => setLifting(list => list.filter(k => k !== leaf)), TURN_MS + 100);
     prevSpread.current = spread;
   }, [spread]);
 
@@ -197,7 +207,7 @@ export default function Notebook({ content }: { content: Content }) {
             const back = wide ? 2 * k + 1 : null;
             const flipped = k < spread;
             const z = turning === k ? 999 : flipped ? k : leafCount - k;
-            const cls = ['leaf', flipped ? 'flipped' : '', Math.abs(k - spread) <= 3 ? 'near' : ''].join(' ');
+            const cls = ['leaf', flipped ? 'flipped' : '', Math.abs(k - spread) <= 3 ? 'near' : '', lifting.includes(k) ? 'lifting' : ''].join(' ');
             return (
               <div key={k} className={cls} style={{ zIndex: z }}>
                 <Face def={defs[front]} index={front} side="front" visible={shown.has(front)} starts={starts} go={goToPage} />

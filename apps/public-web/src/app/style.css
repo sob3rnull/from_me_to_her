@@ -75,31 +75,45 @@ footer { padding-top: 14px; font-size: 0.95rem; color: var(--chrome-soft); text-
 .nb {
   --ph: clamp(400px, calc(100dvh - 232px), 760px);
   --pw: min(calc(var(--ph) * 0.72), 44vw);
+  --turn: 1.4s;
+  --ease: cubic-bezier(0.4, 0.02, 0.2, 1);
   display: flex; flex-direction: column; align-items: center; gap: 16px; width: 100%;
 }
 .nb[data-mode='single'] {
   --pw: min(calc(100vw - 64px), 480px);
   --ph: max(340px, min(calc(100dvh - 250px), calc(var(--pw) / 0.5)));
 }
-.shelf { position: relative; width: calc(var(--pw) * 2); transition: transform 0.85s cubic-bezier(0.45, 0.05, 0.25, 1); }
+.shelf { position: relative; width: calc(var(--pw) * 2); }
 .nb[data-mode='single'] .shelf { width: var(--pw); margin-left: 18px; }
 .shelf[data-pos='start'] { transform: translateX(calc(var(--pw) * -0.5)); }
 .shelf[data-pos='end'] { transform: translateX(calc(var(--pw) * 0.5)); }
-.nb[data-ready='false'] *, .nb[data-ready='false'] { transition: none !important; }
+.nb[data-ready='false'] *, .nb[data-ready='false'] { transition: none !important; animation: none !important; }
 
 .stage { position: relative; height: var(--ph); perspective: 2600px; touch-action: pan-y; filter: drop-shadow(0 26px 26px rgba(8, 14, 30, 0.35)); }
 
 .leaf {
   position: absolute; top: 0; left: 50%; width: 50%; height: 100%;
   transform-origin: left center; transform-style: preserve-3d;
-  visibility: hidden; transition: visibility 0s linear 0.95s;
+  visibility: hidden; transition: visibility 0s linear calc(var(--turn) + 0.1s);
 }
 .nb[data-mode='single'] .leaf { left: 0; width: 100%; }
 .leaf.near { visibility: visible; transition: none; }
 .leaf.flipped { transform: rotateY(-180deg); }
 @media (prefers-reduced-motion: no-preference) {
-  .leaf { transition: transform 0.85s cubic-bezier(0.45, 0.05, 0.25, 1), visibility 0s linear 0.95s; }
-  .leaf.near { transition: transform 0.85s cubic-bezier(0.45, 0.05, 0.25, 1), visibility 0s; }
+  .shelf { transition: transform var(--turn) var(--ease); }
+  .leaf { transition: transform var(--turn) var(--ease), visibility 0s linear calc(var(--turn) + 0.1s); }
+  .leaf.near { transition: transform var(--turn) var(--ease), visibility 0s; }
+  /* In-between motion: the page lifts off the pile, tilts a touch and dims as it passes over the spine. */
+  .leaf.lifting { animation: lift var(--turn) var(--ease); }
+  .leaf.lifting .face { animation: dim var(--turn) ease-in-out; }
+}
+@keyframes lift {
+  0%, 100% { translate: 0 0 0; rotate: 1 0 0 0deg; }
+  50% { translate: 0 0 46px; rotate: 1 0 0 -2.5deg; }
+}
+@keyframes dim {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(0.9); }
 }
 
 /* Pages */
