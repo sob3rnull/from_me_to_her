@@ -57,7 +57,7 @@ export default function Notebook({ content }: { content: Content }) {
 
   const [wide, setWide] = useState(true);
   // `air` lists leaves still in flight. It changes in the same render as `spread`, so a turning leaf never spends a frame in the wrong place in the stack.
-  const [view, setView] = useState<{ spread: number; air: number[] }>({ spread: 0, air: [] });
+  const [view, setView] = useState<{ spread: number; air: number[]; snap: number[] }>({ spread: 0, air: [], snap: [] });
   const spread = view.spread;
   const lifting = view.air;
   const liftTimers = useRef<Record<number, number>>({});
@@ -76,8 +76,14 @@ export default function Notebook({ content }: { content: Content }) {
     if (prev === next) return;
     spreadRef.current = next;
     const leaves = Array.from({ length: Math.abs(next - prev) }, (_, i) => Math.min(prev, next) + i);
-    setView(v => ({ spread: next, air: [...v.air.filter(k => !leaves.includes(k)), ...leaves] }));
-    leaves.forEach(leaf => {
+    // A jump over several pages is a cut: those leaves change sides without turning.
+    const cut = leaves.length > 1;
+    setView(v => ({
+      spread: next,
+      air: cut ? v.air : [...v.air.filter(k => !leaves.includes(k)), ...leaves],
+      snap: cut ? leaves : [],
+    }));
+    if (!cut) leaves.forEach(leaf => {
       window.clearTimeout(liftTimers.current[leaf]);
       liftTimers.current[leaf] = window.setTimeout(
         () => setView(v => ({ ...v, air: v.air.filter(k => k !== leaf) })), TURN_MS + 100);
@@ -92,7 +98,7 @@ export default function Notebook({ content }: { content: Content }) {
     const from = spreadRef.current;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduced || Math.abs(to - from) <= 1) {
-      if (reduced) { spreadRef.current = to; setView(v => ({ ...v, spread: to })); } else fly(to);
+      if (reduced) { spreadRef.current = to; setView({ spread: to, air: [], snap: [] }); } else fly(to);
       return;
     }
     const dir = to > from ? 1 : -1;
@@ -124,7 +130,7 @@ export default function Notebook({ content }: { content: Content }) {
     setWide(mq.matches);
     const first = spreadOf(fromHash(), mq.matches);
     spreadRef.current = first;
-    setView({ spread: first, air: [] });
+    setView({ spread: first, air: [], snap: [] });
     const raf = requestAnimationFrame(() => requestAnimationFrame(() => setReady(true)));
 
     const onLayout = () => {
@@ -135,7 +141,7 @@ export default function Notebook({ content }: { content: Content }) {
       setWide(mq.matches);
       const s = spreadOf(page, mq.matches);
       spreadRef.current = s;
-      setView({ spread: s, air: [] });
+      setView({ spread: s, air: [], snap: [] });
     };
     const onHash = () => goToSpread(spreadOf(fromHash(), wideRef.current));
     mq.addEventListener('change', onLayout);
@@ -211,7 +217,7 @@ export default function Notebook({ content }: { content: Content }) {
             // Every page still in the air stays above the stacks, in the order it will land.
             const base = flipped ? k : leafCount - k;
             const z = lifting.includes(k) ? 500 + base : base;
-            const cls = ['leaf', flipped ? 'flipped' : '', Math.abs(k - spread) <= 3 ? 'near' : '', lifting.includes(k) ? 'lifting' : ''].join(' ');
+            const cls = ['leaf', flipped ? 'flipped' : '', Math.abs(k - spread) <= 3 ? 'near' : '', lifting.includes(k) ? 'lifting' : '', view.snap.includes(k) ? 'snap' : ''].join(' ');
             return (
               <div key={k} className={cls} style={{ zIndex: z }}>
                 <Face def={defs[front]} index={front} side="front" visible={shown.has(front)} starts={starts} go={goToPage} />
