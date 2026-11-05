@@ -101,6 +101,7 @@ footer { padding-top: 14px; font-size: 0.95rem; color: var(--chrome-soft); text-
   visibility: hidden; transition: visibility 0s linear calc(var(--turn) + 0.1s);
 }
 .nb[data-mode='single'] .leaf { left: 0; width: 100%; }
+.leaf { will-change: transform; }
 .leaf.near { visibility: visible; transition: none; }
 .leaf.flipped { transform: rotateY(-180deg); }
 @media (prefers-reduced-motion: no-preference) {
@@ -110,7 +111,6 @@ footer { padding-top: 14px; font-size: 0.95rem; color: var(--chrome-soft); text-
   .leaf.near { transition: transform var(--turn) var(--ease), visibility 0s; }
   /* In-between motion: the page lifts off the pile, tilts a touch as it passes over the spine. */
   .leaf.lifting { animation: lift var(--turn) var(--ease); }
-  .leaf.lifting { will-change: transform; }
 }
 @keyframes lift {
   0%, 100% { translate: 0 0 0; rotate: 1 0 0 0deg; }

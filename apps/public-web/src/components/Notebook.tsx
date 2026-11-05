@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 export type NotePage = { slug: string; title: string; body: string };
 export type Piece = { title: string; text: string };
@@ -56,20 +56,35 @@ export default function Notebook({ content }: { content: Content }) {
   }, [defs]);
 
   const [wide, setWide] = useState(true);
-  const [spread, setSpread] = useState(0);
-  const [lifting, setLifting] = useState<number[]>([]);
+  // `air` lists leaves still in flight. It changes in the same render as `spread`, so a turning leaf never spends a frame in the wrong place in the stack.
+  const [view, setView] = useState<{ spread: number; air: number[] }>({ spread: 0, air: [] });
+  const spread = view.spread;
+  const lifting = view.air;
   const liftTimers = useRef<Record<number, number>>({});
   const [ready, setReady] = useState(false);
   const wideRef = useRef(true);
   const spreadRef = useRef(0);
-  const prevSpread = useRef(0);
   const stepper = useRef<number | undefined>(undefined);
   const swipe = useRef<{ x: number; y: number } | null>(null);
 
   const spreadOf = useCallback((page: number, w: boolean) => (w ? Math.ceil(page / 2) : page), []);
   const pageOf = useCallback((s: number, w: boolean) => (w ? (s === 0 ? 0 : Math.min(2 * s, n - 1)) : s), [n]);
 
-  // Moves to a spread. Long jumps riffle through the pages one by one.
+  // Sends the book to a spread with the leaves in between turning.
+  const fly = useCallback((next: number) => {
+    const prev = spreadRef.current;
+    if (prev === next) return;
+    spreadRef.current = next;
+    const leaves = Array.from({ length: Math.abs(next - prev) }, (_, i) => Math.min(prev, next) + i);
+    setView(v => ({ spread: next, air: [...v.air.filter(k => !leaves.includes(k)), ...leaves] }));
+    leaves.forEach(leaf => {
+      window.clearTimeout(liftTimers.current[leaf]);
+      liftTimers.current[leaf] = window.setTimeout(
+        () => setView(v => ({ ...v, air: v.air.filter(k => k !== leaf) })), TURN_MS + 100);
+    });
+  }, []);
+
+  // Moves to a spread. Long jumps riffle: the first and last few pages turn, the middle ones are skipped unseen.
   const goToSpread = useCallback((target: number) => {
     const max = wideRef.current ? n / 2 : n - 1;
     const to = Math.max(0, Math.min(max, target));
@@ -77,18 +92,24 @@ export default function Notebook({ content }: { content: Content }) {
     const from = spreadRef.current;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduced || Math.abs(to - from) <= 1) {
-      spreadRef.current = to;
-      setSpread(to);
+      if (reduced) { spreadRef.current = to; setView(v => ({ ...v, spread: to })); } else fly(to);
       return;
     }
     const dir = to > from ? 1 : -1;
+    const HEAD = 3, TAIL = 4;
+    const dist = Math.abs(to - from);
+    const stops: number[] = [];
+    if (dist <= HEAD + TAIL + 1) for (let i = 1; i <= dist; i++) stops.push(from + dir * i);
+    else {
+      for (let i = 1; i <= HEAD; i++) stops.push(from + dir * i);
+      for (let i = TAIL; i >= 0; i--) stops.push(to - dir * i);
+    }
+    let at = 0;
     stepper.current = window.setInterval(() => {
-      const next = spreadRef.current + dir;
-      spreadRef.current = next;
-      setSpread(next);
-      if (next === to) window.clearInterval(stepper.current);
+      fly(stops[at++]);
+      if (at >= stops.length) window.clearInterval(stepper.current);
     }, 150);
-  }, [n]);
+  }, [n, fly]);
 
   const goToPage = useCallback((page: number) => goToSpread(spreadOf(page, wideRef.current)), [goToSpread, spreadOf]);
 
@@ -103,8 +124,7 @@ export default function Notebook({ content }: { content: Content }) {
     setWide(mq.matches);
     const first = spreadOf(fromHash(), mq.matches);
     spreadRef.current = first;
-    prevSpread.current = first;
-    setSpread(first);
+    setView({ spread: first, air: [] });
     const raf = requestAnimationFrame(() => requestAnimationFrame(() => setReady(true)));
 
     const onLayout = () => {
@@ -115,8 +135,7 @@ export default function Notebook({ content }: { content: Content }) {
       setWide(mq.matches);
       const s = spreadOf(page, mq.matches);
       spreadRef.current = s;
-      prevSpread.current = s;
-      setSpread(s);
+      setView({ spread: s, air: [] });
     };
     const onHash = () => goToSpread(spreadOf(fromHash(), wideRef.current));
     mq.addEventListener('change', onLayout);
@@ -129,17 +148,6 @@ export default function Notebook({ content }: { content: Content }) {
         Object.values(liftTimers.current).forEach(id => window.clearTimeout(id));
     };
   }, [n, spreadOf, pageOf, goToSpread]);
-
-  // The leaf being turned sits on top of the pile and lifts off it while it moves.
-  useEffect(() => {
-    const prev = prevSpread.current;
-    if (prev === spread) return;
-    const leaf = Math.min(prev, spread);
-    setLifting(list => (list.includes(leaf) ? list : [...list, leaf]));
-    window.clearTimeout(liftTimers.current[leaf]);
-    liftTimers.current[leaf] = window.setTimeout(() => setLifting(list => list.filter(k => k !== leaf)), TURN_MS + 100);
-    prevSpread.current = spread;
-  }, [spread]);
 
   // Keep the address in step so a refresh or a shared link lands on the same page.
   useEffect(() => {
@@ -241,7 +249,7 @@ export default function Notebook({ content }: { content: Content }) {
   );
 }
 
-function Face({ def, index, side, visible, starts, go }: {
+const Face = memo(function Face({ def, index, side, visible, starts, go }: {
   def: Def | undefined; index: number; side: 'front' | 'back'; visible: boolean;
   starts: Record<Section, number>; go: (page: number) => void;
 }) {
@@ -252,7 +260,7 @@ function Face({ def, index, side, visible, starts, go }: {
       {def && (bound ? <Bound def={def} /> : <Sheet def={def} index={index} side={side} starts={starts} go={go} />)}
     </div>
   );
-}
+});
 
 function Bound({ def }: { def: Def }) {
   if (def.kind === 'cover') {
