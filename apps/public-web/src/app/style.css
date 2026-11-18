@@ -197,6 +197,7 @@ footer { padding-top: 14px; font-size: 0.95rem; color: var(--chrome-soft); text-
 }
 .nb[data-mode='single'] .rings { left: 0; }
 .ribbon { position: absolute; z-index: 1; bottom: -46px; left: calc(50% + 22px); width: 16px; height: 58px; background: repeating-linear-gradient(-45deg, var(--red) 0 6px, var(--blue) 6px 12px); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 82%, 0 100%); pointer-events: none; }
+.shelf[data-pos='end'] .ribbon { left: calc(50% - 38px); }
 .nb[data-mode='single'] .ribbon { display: none; }
 
 .corner { position: absolute; bottom: 0; z-index: 3000; width: 84px; height: 84px; padding: 0; border: 0; background: transparent; cursor: pointer; }
@@ -210,14 +211,16 @@ footer { padding-top: 14px; font-size: 0.95rem; color: var(--chrome-soft); text-
 .corner:hover::before { width: 52px; height: 52px; }
 
 /* Section tabs on the edge of the book (a row under it on small screens) */
-.tabs { position: absolute; left: 100%; top: 34px; display: flex; flex-direction: column; gap: 6px; margin-left: -3px; z-index: 0; }
+.tabs { position: absolute; left: 100%; top: 34px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-left: -3px; z-index: 0; }
+.shelf[data-pos='end'] .tabs { left: 50%; }
 .tabs button {
   writing-mode: vertical-rl; font-family: var(--type); font-size: 0.78rem; color: #fff; cursor: pointer;
   padding: 12px 7px 12px 9px; border: 0; border-radius: 0 7px 7px 0; background: var(--tab, var(--blue));
-  transition: transform 0.2s ease, filter 0.2s ease;
+  transition: padding-right 0.2s ease, transform 0.2s ease, filter 0.2s ease;
 }
-.tabs button:hover { transform: translateX(4px); }
-.tabs button[aria-current='true'] { transform: translateX(6px); filter: brightness(1.12); box-shadow: 2px 0 0 rgba(255, 255, 255, 0.25) inset; }
+/* Extend the outer edge while keeping the base tucked under the paper. */
+.tabs button:hover { padding-right: 11px; }
+.tabs button[aria-current='true'] { padding-right: 13px; filter: brightness(1.12); }
 .tabs [data-section='notes'] { --tab: #2b4d94; }
 .tabs [data-section='dreams'] { --tab: #c8432f; }
 .tabs [data-section='fragments'] { --tab: #b88a1c; }
