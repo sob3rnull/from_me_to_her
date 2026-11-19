@@ -93,21 +93,24 @@ footer { padding-top: 14px; font-size: 0.95rem; color: var(--chrome-soft); text-
 .stage::before { content: ''; position: absolute; inset: 6px 0 0; border-radius: 6px; box-shadow: 0 26px 26px rgba(8, 14, 30, 0.35); pointer-events: none; }
 .shelf[data-pos='start'] .stage::before { left: 50%; }
 .shelf[data-pos='end'] .stage::before { right: 50%; }
-.nb[data-mode='single'] .stage::before { left: 0; right: 0; }
+/* Keep turning pages inside the book on narrow screens, with room for the spiral. */
+.nb[data-mode='single'] .stage { clip-path: inset(0 0 0 -13px); }
+.nb[data-mode='single'] .stage::before { display: none; }
+.nb[data-mode='single'] .shelf::before { content: ''; position: absolute; inset: 6px 0 auto; height: calc(var(--ph) - 6px); border-radius: 6px; box-shadow: 0 26px 26px rgba(8, 14, 30, 0.35); pointer-events: none; }
 
 .leaf {
   position: absolute; top: 0; left: 50%; width: 50%; height: 100%;
   transform-origin: left center; transform-style: preserve-3d;
-  visibility: hidden; transition: visibility 0s linear calc(var(--turn) + 0.1s);
+  visibility: hidden;
 }
 .nb[data-mode='single'] .leaf { left: 0; width: 100%; }
-.leaf { will-change: transform; }
-.leaf.near { visibility: visible; transition: none; }
+.leaf.near { visibility: visible; will-change: transform; }
 .leaf.snap, .leaf.snap.near { transition: none !important; }
 .leaf.flipped { transform: rotateY(-180deg); }
 @media (prefers-reduced-motion: no-preference) {
   .shelf { transition: transform var(--turn) var(--ease); }
   .stage::before { transition: left var(--turn) var(--ease), right var(--turn) var(--ease); }
+  .ribbon { transition: left var(--turn) var(--ease); }
   .leaf { transition: transform var(--turn) var(--ease), visibility 0s linear calc(var(--turn) + 0.1s); }
   .leaf.near { transition: transform var(--turn) var(--ease), visibility 0s; }
 }
@@ -205,17 +208,26 @@ footer { padding-top: 14px; font-size: 0.95rem; color: var(--chrome-soft); text-
 .corner.next { right: 0; }
 .corner.prev { left: 0; }
 .nb[data-mode='single'] .corner.prev { left: 0; }
-.corner::before { content: ''; position: absolute; bottom: 0; width: 18px; height: 18px; transition: width 0.25s ease, height 0.25s ease; }
+.corner::before { content: ''; position: absolute; bottom: 0; width: 18px; height: 18px; transition: width 0.25s ease, height 0.25s ease, opacity 0.16s ease; }
 .corner.next::before { right: 0; background: linear-gradient(135deg, rgba(10, 18, 40, 0.3) 0, rgba(10, 18, 40, 0.06) 45%, transparent 46%), linear-gradient(315deg, transparent 50%, #eef2f8 50%, #cdd7e6 100%); border-radius: 0 0 6px 0; }
 .corner.prev::before { left: 0; background: linear-gradient(225deg, rgba(10, 18, 40, 0.3) 0, rgba(10, 18, 40, 0.06) 45%, transparent 46%), linear-gradient(45deg, transparent 50%, #eef2f8 50%, #cdd7e6 100%); border-radius: 0 0 0 6px; }
 .corner:hover::before { width: 52px; height: 52px; }
+.shelf[data-front-turn='true'] .corner.prev::before,
+.shelf[data-back-turn='true'] .corner.next::before { opacity: 0; }
 
 /* Section tabs on the edge of the book (a row under it on small screens) */
 .tabs { position: absolute; left: 100%; top: 34px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-left: -3px; z-index: 0; }
 .shelf[data-pos='end'] .tabs { left: 50%; }
+@media (prefers-reduced-motion: no-preference) {
+  .tabs { transition: opacity 0.16s ease; }
+  /* Change edges after the tabs fade out, then reveal them once the cover settles. */
+  .shelf[data-back-turn='true'] .tabs { opacity: 0; pointer-events: none; transition: opacity 0.16s ease, left 0s 0.16s; }
+}
 .tabs button {
+  --tab-end-padding: clamp(5px, calc(5px + (var(--ph) - 400px) * 0.085), 12px);
   writing-mode: vertical-rl; font-family: var(--type); font-size: 0.78rem; color: #fff; cursor: pointer;
-  padding: 12px 7px 12px 9px; border: 0; border-radius: 0 7px 7px 0; background: var(--tab, var(--blue));
+  padding: var(--tab-end-padding) 7px var(--tab-end-padding) 9px;
+  border: 0; border-radius: 0 7px 7px 0; background: var(--tab, var(--blue));
   transition: padding-right 0.2s ease, transform 0.2s ease, filter 0.2s ease;
 }
 /* Extend the outer edge while keeping the base tucked under the paper. */
@@ -238,6 +250,9 @@ footer { padding-top: 14px; font-size: 0.95rem; color: var(--chrome-soft); text-
 .nb[data-mode='single'] .tabs { position: static; flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 16px 0 0; }
 .nb[data-mode='single'] .tabs button { writing-mode: horizontal-tb; padding: 6px 10px; border-radius: 7px; }
 .nb[data-mode='single'] .tabs button:hover, .nb[data-mode='single'] .tabs button[aria-current='true'] { transform: translateY(-2px); }
+@media (prefers-reduced-motion: reduce) {
+  .tabs button, .corner::before { transition: none; }
+}
 
 /* The hidden knock: a full stop that is also a button. */
 .knock { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: text; }
