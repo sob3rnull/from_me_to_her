@@ -46,6 +46,8 @@ const pageNumber = (index: number, def: Def) =>
 // Keep in step with --turn in style.css.
 const TURN_MS = 1400;
 
+type BookmarkTurn = { id: number; direction: 'forward' | 'backward' };
+
 export default function Notebook({ content }: { content: Content }) {
   const defs = useMemo(() => buildDefs(content), [content]);
   const n = defs.length;
@@ -57,11 +59,14 @@ export default function Notebook({ content }: { content: Content }) {
 
   const [wide, setWide] = useState(true);
   // Update the page and its turning leaves together so the stack stays in order.
-  const [view, setView] = useState<{ page: number; air: number[]; jump: boolean }>({ page: 0, air: [], jump: false });
+  const [view, setView] = useState<{ page: number; air: number[]; jump: boolean; bookmarkTurn?: BookmarkTurn }>({
+    page: 0, air: [], jump: false,
+  });
   const liftTimers = useRef<Record<number, number>>({});
   const [ready, setReady] = useState(false);
   const wideRef = useRef(true);
   const pageRef = useRef(0);
+  const bookmarkTurnId = useRef(0);
   const swipe = useRef<{ x: number; y: number } | null>(null);
 
   const spreadOf = useCallback((page: number, w: boolean) => (w ? Math.ceil(page / 2) : page), []);
@@ -74,12 +79,19 @@ export default function Notebook({ content }: { content: Content }) {
     liftTimers.current = {};
   }, []);
 
-  // Bookmarks and links commit one destination without briefly showing other spreads.
-  const goToPage = useCallback((page: number) => {
+  // Commit the destination in one render. The bookmark turn is a decorative sheet.
+  const goToPage = useCallback((page: number, animateBookmark = false) => {
+    const previous = pageRef.current;
     clearTurns();
     pageRef.current = page;
-    setView({ page, air: [], jump: true });
+    const bookmarkTurn: BookmarkTurn | undefined = animateBookmark && page !== previous
+      && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      ? { id: ++bookmarkTurnId.current, direction: page > previous ? 'forward' : 'backward' }
+      : undefined;
+    setView({ page, air: [], jump: true, bookmarkTurn });
   }, [clearTurns]);
+
+  const goToSection = useCallback((page: number) => goToPage(page, true), [goToPage]);
 
   const goToSpread = useCallback((target: number) => {
     const w = wideRef.current;
@@ -180,6 +192,7 @@ export default function Notebook({ content }: { content: Content }) {
   const status = numbers.length === 2 ? `${name}, pages ${numbers[0]} and ${numbers[1]}` : numbers.length === 1 ? `${name}, page ${numbers[0]}` : name;
 
   const pos = !wide ? 'open' : spread === 0 ? 'start' : spread === maxSpread ? 'end' : 'open';
+  const bookmarkTurn = view.bookmarkTurn;
 
   return (
     <div className="nb" data-mode={wide ? 'spread' : 'single'} data-ready={ready}>
@@ -210,11 +223,15 @@ export default function Notebook({ content }: { content: Content }) {
             const cls = ['leaf', flipped ? 'flipped' : '', Math.abs(k - spread) <= 3 || lifting.includes(k) ? 'near' : '', lifting.includes(k) ? 'lifting' : ''].join(' ');
             return (
               <div key={k} className={cls} style={{ zIndex: z }}>
-                <Face def={defs[front]} index={front} side="front" visible={shown.has(front)} starts={starts} go={goToPage} />
-                <Face def={back === null ? undefined : defs[back]} index={back ?? -1} side="back" visible={back !== null && shown.has(back)} starts={starts} go={goToPage} />
+                <Face def={defs[front]} index={front} side="front" visible={shown.has(front)} starts={starts} go={goToSection} />
+                <Face def={back === null ? undefined : defs[back]} index={back ?? -1} side="back" visible={back !== null && shown.has(back)} starts={starts} go={goToSection} />
               </div>
             );
           })}
+          {bookmarkTurn && <div key={bookmarkTurn.id} className="bookmark-turn" data-direction={bookmarkTurn.direction}
+            aria-hidden="true" onAnimationEnd={() => setView(current => current.bookmarkTurn?.id === bookmarkTurn.id
+              ? { ...current, bookmarkTurn: undefined }
+              : current)} />}
           <div className="rings" aria-hidden="true" />
           <button type="button" className="corner prev" aria-hidden="true" tabIndex={-1} hidden={spread === 0}
                   onClick={() => turnPage(-1)} />
@@ -225,7 +242,7 @@ export default function Notebook({ content }: { content: Content }) {
         <div className="tabs" role="group" aria-label="Sections">
           {SECTIONS.map(s => (
             <button key={s.id} type="button" data-section={s.id} aria-current={activeSection === s.id ? 'true' : undefined}
-                    onClick={() => goToPage(starts[s.id])}>
+                    onClick={() => goToSection(starts[s.id])}>
               {s.label}
             </button>
           ))}
