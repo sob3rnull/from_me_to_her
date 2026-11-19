@@ -136,6 +136,7 @@ export default function Notebook({ content }: { content: Content }) {
     const onLayout = () => {
       const before = wideRef.current;
       if (before === mq.matches) return;
+      window.clearInterval(stepper.current);
       const page = pageOf(spreadRef.current, before);
       wideRef.current = mq.matches;
       setWide(mq.matches);
@@ -166,6 +167,8 @@ export default function Notebook({ content }: { content: Content }) {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.target instanceof Element && e.target.closest('input, textarea, select, dialog')) return;
+      if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(e.key)) return;
+      e.preventDefault();
       if (e.key === 'ArrowRight') goToSpread(spreadRef.current + 1);
       else if (e.key === 'ArrowLeft') goToSpread(spreadRef.current - 1);
       else if (e.key === 'Home') goToSpread(0);
@@ -249,11 +252,14 @@ export default function Notebook({ content }: { content: Content }) {
 
       <div className="controls">
         <button type="button" className="flip" disabled={spread === 0} onClick={() => goToSpread(spreadRef.current - 1)}>
-          Previous page
+          <span aria-hidden="true">← </span>Previous page
         </button>
-        <p className="status" aria-live="polite">{status}</p>
+        <div className="reading-position">
+          <p className="status" aria-live="polite">{status}</p>
+          <div className="progress-track" aria-hidden="true"><span style={{ transform: `scaleX(${spread / maxSpread})` }} /></div>
+        </div>
         <button type="button" className="flip" disabled={spread === maxSpread} onClick={() => goToSpread(spreadRef.current + 1)}>
-          Next page
+          Next page<span aria-hidden="true"> →</span>
         </button>
       </div>
     </div>
@@ -268,20 +274,22 @@ const Face = memo(function Face({ def, index, side, visible, starts, go }: {
   const cls = ['face', side, bound ? (def!.kind === 'back' ? 'backcover' : 'cover') : 'paper'].join(' ');
   return (
     <div className={cls} aria-hidden={visible ? undefined : true} inert={!visible}>
-      {def && (bound ? <Bound def={def} /> : <Sheet def={def} index={index} side={side} starts={starts} go={go} />)}
+      {def && (bound ? <Bound def={def} go={go} /> : <Sheet def={def} index={index} side={side} starts={starts} go={go} />)}
     </div>
   );
 });
 
-function Bound({ def }: { def: Def }) {
+function Bound({ def, go }: { def: Def; go: (page: number) => void }) {
   if (def.kind === 'cover') {
     return <>
       <p className="cover-mark">from me, to her</p>
+      <span className="postage" aria-hidden="true"><i>✦</i></span>
       <h1>
         <span className="line l1">Some things</span>{' '}
         <span className="line l2">need a place</span>{' '}
         <span className="line l3">to exist.</span>
       </h1>
+      <button type="button" className="open-book" onClick={() => go(1)}>Open notebook <span aria-hidden="true">↗</span></button>
       <span className="band" />
     </>;
   }

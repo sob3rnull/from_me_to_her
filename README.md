@@ -1,8 +1,10 @@
 # from_me_to_her
 
-## Project status · 19 November 2026
+## Project status Â· 19 November 2026
 
 The public notebook is live on Vercel. It includes notes, dreams, fragments and unfinished writing, with page turns, section tabs and a theme switch. [Open the notebook](https://somewhere-to-put-it.vercel.app/).
+
+The cover opens with a tap, and a progress line follows your place as you read. Keyboard arrows, section tabs and touch swipes navigate the pages. Reduced-motion mode turns pages immediately. On Vercel, the footer entrance is enabled only when an HTTPS vault destination is configured at build time.
 
 The private vault is at the **working V1 demo** stage. The owner can edit drafts, share entries and track promises. The reader signs in through staged gates and sees shared entries. Enrollment, account recovery and an HTTPS rehearsal are implemented. Live private-vault hosting remains unverified.
 
@@ -36,7 +38,7 @@ This is a personal web/security project consisting of:
 
 ## CORE IDEA
 
-Public website ≠ private archive.
+Public website â‰  private archive.
 
 The GitHub project contains:
 - application code
@@ -149,19 +151,19 @@ Do not remove this because it is funny.
 ## ARCHIVE LIFECYCLE
 
 ACTIVE
-  ↓
+  â†“
 90-day keepalive
-  ↓
+  â†“
 No login
-  ↓
+  â†“
 Backup/export
-  ↓
+  â†“
 Verify backup
-  ↓
+  â†“
 Delete public archive
-  ↓
+  â†“
 Private copy remains
-  ↓
+  â†“
 Website survives
 
 NEVER delete the public archive before

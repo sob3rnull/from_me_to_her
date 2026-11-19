@@ -11,6 +11,8 @@ import ThemeToggle from './ThemeToggle';
 export const metadata = { title: 'from me, to her', description: 'A small notebook on the internet.' };
 
 export default function Layout({children}: {children: React.ReactNode}) {
+  const hostedWithoutVault = process.env.VERCEL === '1' &&
+    (!process.env.NEXT_PUBLIC_VAULT_URL || new URL(process.env.NEXT_PUBLIC_VAULT_URL).protocol !== 'https:');
   return <html lang="en"><body>
     <div className="desk">
       <header className="bar">
@@ -19,7 +21,7 @@ export default function Layout({children}: {children: React.ReactNode}) {
       </header>
       <main>{children}</main>
       <footer>
-        <span>Public words here. Private memories elsewhere<Knock sealed={sealDoor()} /></span>
+        <span>Public words here. Private memories elsewhere{hostedWithoutVault ? '.' : <Knock sealed={sealDoor()} />}</span>
       </footer>
     </div>
   </body></html>;

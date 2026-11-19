@@ -1,16 +1,16 @@
 /* A spiral notebook on a desk. Palette: slate desk, cool ruled paper, navy cloth cover, airmail red and blue, lamplight. */
 :root {
-  --desk: #b7c3d1;
-  --chrome: #1b2a4a;
-  --chrome-soft: #44527a;
-  --paper: #f7f9fc;
-  --paper-edge: #d9e1ec;
-  --rule: #cfdbeb;
+  --desk: #e6dfcf;
+  --chrome: #263e36;
+  --chrome-soft: #505d51;
+  --paper: #fffbf0;
+  --paper-edge: #ded5c1;
+  --rule: #d6ded4;
   --margin: #dc8676;
   --ink: #1b2a4a;
   --muted: #5d6a88;
-  --cover: #1d2f57;
-  --cover-ink: #eef1f7;
+  --cover: #214b42;
+  --cover-ink: #fff3d9;
   --lamp: #f0b441;
   --red: #c8432f;
   --blue: #2b4d94;
@@ -41,7 +41,10 @@ body {
   margin: 0;
   min-height: 100dvh;
   color: var(--chrome);
-  background: radial-gradient(60rem 36rem at 82% -6%, var(--glow), transparent 70%), var(--desk);
+  background-color: var(--desk);
+  background-image: radial-gradient(ellipse at 72% 10%, var(--glow), transparent 60%),
+    radial-gradient(color-mix(in srgb, var(--chrome) 14%, transparent) 0.7px, transparent 0.9px);
+  background-size: auto, 6px 6px;
   font-family: var(--serif);
   font-size: 1.05rem;
   line-height: 1.55;
@@ -55,7 +58,9 @@ a { color: inherit; text-underline-offset: 3px; }
 /* The desk */
 .desk { min-height: 100dvh; display: flex; flex-direction: column; align-items: center; padding: 0 16px 14px; }
 .bar { width: 100%; max-width: 1180px; display: flex; align-items: center; justify-content: space-between; padding: 14px 0; }
-.mark { font-style: italic; letter-spacing: 0.01em; }
+.bar { border-bottom: 1px solid color-mix(in srgb, var(--chrome) 20%, transparent); }
+.mark::before { content: '✉'; margin-right: 0.6em; font-style: normal; }
+.mark { font-size: 1.3rem; font-style: italic; letter-spacing: 0.01em; }
 main { flex: 1; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 footer { padding-top: 14px; font-size: 0.95rem; color: var(--chrome-soft); text-align: center; }
 .plain { text-align: center; }
@@ -202,7 +207,7 @@ footer { padding-top: 14px; font-size: 0.95rem; color: var(--chrome-soft); text-
 .face.cover::before, .face.backcover::before { content: ''; position: absolute; inset: 14px; border: 1.5px dashed rgba(255, 255, 255, 0.22); border-radius: 3px; pointer-events: none; }
 .face.cover { display: flex; flex-direction: column; justify-content: center; padding: 10% 10% 14% 17%; }
 .face.backcover { display: flex; align-items: center; justify-content: center; }
-.cover-mark { position: absolute; top: 9%; left: 17%; margin: 0; font-style: italic; font-size: 1rem; opacity: 0.8; }
+.cover-mark { position: absolute; top: 10%; left: 17%; margin: 0; font-style: italic; font-size: 1rem; opacity: 0.8; }
 .cover h1 { margin: 0; font-weight: 400; font-size: clamp(2.2rem, calc(var(--pw) * 0.13), 3.6rem); line-height: 1; letter-spacing: -0.03em; }
 .line { display: block; }
 .l2 { padding-left: 0.45em; }
@@ -283,7 +288,7 @@ footer { padding-top: 14px; font-size: 0.95rem; color: var(--chrome-soft); text-
 .tabs [data-section='now'] { --tab: #5f7a4e; }
 .tabs [data-section='about'] { --tab: #7a5a86; }
 
-.controls { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: min(100%, calc(var(--pw) * 2)); margin-top: 22px; }
+.controls { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: min(100%, 42rem); margin-top: 22px; }
 .nb[data-mode='single'] .controls { width: var(--pw); margin-top: 8px; }
 .status { margin: 0; flex: 1; text-align: center; font-style: italic; font-size: 0.95rem; color: var(--chrome-soft); }
 .flip { font: inherit; font-size: 0.95rem; color: var(--chrome); background: transparent; border: 1px solid var(--chrome-soft); border-radius: 999px; padding: 7px 16px; cursor: pointer; white-space: nowrap; }
@@ -320,4 +325,47 @@ footer { padding-top: 14px; font-size: 0.95rem; color: var(--chrome-soft); text-
 @media (max-width: 380px) {
   .lines { font-size: 1rem; }
   .title { font-size: 1.3rem; }
+}
+
+/* Foil, postage and the opening action belong to the turning cover. */
+.face.cover::before, .face.backcover::before {
+  border: 3px double #ceb47999;
+  border-radius: 2px;
+}
+.cover h1 { position: relative; font-size: clamp(2.15rem, calc(var(--pw) * 0.13), 4.3rem); }
+.cover .l2, .cover .l3 { padding-left: 0; }
+.cover .l3 { color: #f0d292; }
+.postage {
+  position: absolute; top: 8%; right: 10%; width: 14%; aspect-ratio: 4/5;
+  display: grid; place-items: center; transform: rotate(8deg); color: #ffedbf;
+  border: 3px dotted #f1ddb0; background: #a9503d; outline: 1px solid #b29f75;
+  box-shadow: 1px 3px 4px #102b2644;
+}
+.postage i { display: grid; place-items: center; width: 75%; height: 80%; border: 1px solid currentColor; font: normal 1.7rem Georgia, serif; }
+.open-book {
+  align-self: flex-start; display: inline-flex; align-items: center; gap: .8rem;
+  margin-top: 1.4rem; padding: .65rem 1rem; min-height: 44px; border: 1px solid #dfceaa;
+  border-radius: 3px; background: #f5e8ca; color: #254135; font: 1rem var(--serif); cursor: pointer;
+}
+.open-book:hover { background: #fff5dc; }
+.reading-position { flex: 1; min-width: 0; }
+.progress-track { height: 2px; margin: 5px auto 0; max-width: 8rem; background: color-mix(in srgb, var(--chrome) 20%, transparent); }
+.progress-track span { display: block; height: 100%; background: var(--chrome); transform-origin: left; }
+.lamp, .flip { min-height: 44px; }
+.tabs [data-section='fragments'] { --tab: #805e15; }
+.tabs [data-section='unfinished'] { --tab: #416a73; }
+.tabs [data-section='now'] { --tab: #506b40; }
+@media (prefers-reduced-motion: no-preference) {
+  .open-book span, .progress-track span { transition: transform .28s ease; }
+  .open-book:hover span, .open-book:focus-visible span { transform: translate(2px, -2px); }
+  .knock-box[open] { animation: letter-open .22s ease-out; }
+  @keyframes letter-open { from { opacity: 0; transform: translateY(8px); } }
+}
+@media (max-width: 480px) {
+  .nb[data-mode='single'] .controls { width: 100%; gap: 6px; }
+  .flip { padding-inline: 9px; }
+  .status { line-height: 1.2; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nb *, .lamp-bulb, body { transition: none !important; animation: none !important; }
 }

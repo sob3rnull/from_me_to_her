@@ -176,7 +176,7 @@ Expected results at this milestone:
 | Python tests | 26 passed; PostgreSQL test skipped unless a test database is configured |
 | Frontend builds | Public site builds statically; vault builds dynamically |
 | HTTPS rehearsal | Two tests pass through Caddy and the production vault build |
-| Demo browser tests | Two tests pass |
+| Demo browser tests | Owner/reader, recovery and desktop/mobile notebook flows pass |
 
 The HTTPS helper downloads a pinned, checksum-verified Caddy executable and uses
 temporary fictional data and a temporary local certificate authority. It does not
@@ -202,7 +202,7 @@ not already exist. Stop development servers before reinstalling dependencies.
 
 On 19 November 2026, the public Vercel URL returned HTTP 200 and served the notebook. PR #12 was merged at `3368e67`. The local API suite passed 26 tests and skipped the PostgreSQL test because no disposable PostgreSQL service was configured. The matching CI run passed, including PostgreSQL and browser checks. [Verify archive run](https://github.com/sob3rnull/from_me_to_her/actions/runs/44530130973).
 
-Both frontend builds passed locally after installing the locked dependencies. The build warned about Next.js 16.4.2, and `npm.cmd audit --omit=dev` reported a moderate finding for Next.js. Review the advisories and test a patched release before deploying the vault.
+Both frontend builds passed locally after installing the locked dependencies. The notebook refresh updated both workspaces to Next.js 16.4.6. The production dependency audit reported zero findings after the update.
 
 For private archive work, use fictional entries to repeat the owner and reader checks above. Keep future real data and keys outside this OneDrive checkout because ignored files can still sync.
 
@@ -213,7 +213,7 @@ it on. Keep the next change limited to attaching images to an existing entry.
 
 The intended workflow is:
 
-`Owner saves entry â†’ uploads image â†’ API validates and stores it privately â†’ permitted viewer requests it through the API`
+`Owner saves entry Ã¢â€ â€™ uploads image Ã¢â€ â€™ API validates and stores it privately Ã¢â€ â€™ permitted viewer requests it through the API`
 
 Implementation sequence:
 
