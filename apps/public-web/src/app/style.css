@@ -96,6 +96,17 @@ footer { padding-top: 14px; font-size: 0.95rem; color: var(--chrome-soft); text-
 .nb[data-mode='single'] .stage::before { left: 0; right: 0; }
 
 .page-window { position: absolute; inset: 0; z-index: 2; }
+/* Keep edge-on sheets inside the spiral without clipping the outer page corners. */
+.nb[data-mode='spread'] .page-window {
+  clip-path: polygon(
+    -10% -120px, calc(50% - 64px) -120px,
+    calc(50% - 13px) 0, calc(50% + 13px) 0,
+    calc(50% + 64px) -120px, 110% -120px,
+    110% calc(100% + 120px), calc(50% + 64px) calc(100% + 120px),
+    calc(50% + 13px) 100%, calc(50% - 13px) 100%,
+    calc(50% - 64px) calc(100% + 120px), -10% calc(100% + 120px)
+  );
+}
 .nb[data-mode='single'] .page-window { clip-path: inset(0); }
 /* Compare overlapping leaves in one 3D space. Keep the spiral and controls above it. */
 .page-stack { position: absolute; inset: 0; perspective: 2600px; transform-style: preserve-3d; }
