@@ -46,8 +46,6 @@ const pageNumber = (index: number, def: Def) =>
 // Keep in step with --turn in style.css.
 const TURN_MS = 1400;
 
-type BookmarkTurn = { id: number; direction: 'forward' | 'backward' };
-
 export default function Notebook({ content }: { content: Content }) {
   const defs = useMemo(() => buildDefs(content), [content]);
   const n = defs.length;
@@ -58,66 +56,68 @@ export default function Notebook({ content }: { content: Content }) {
   }, [defs]);
 
   const [wide, setWide] = useState(true);
-  // Update the page and its turning leaves together so the stack stays in order.
-  const [view, setView] = useState<{ page: number; air: number[]; jump: boolean; bookmarkTurn?: BookmarkTurn }>({
-    page: 0, air: [], jump: false,
-  });
+  // `air` lists leaves still in flight. It changes in the same render as `spread`, so a turning leaf never spends a frame in the wrong place in the stack.
+  const [view, setView] = useState<{ spread: number; air: number[]; snap: number[] }>({ spread: 0, air: [], snap: [] });
+  const spread = view.spread;
+  const lifting = view.air;
   const liftTimers = useRef<Record<number, number>>({});
   const [ready, setReady] = useState(false);
   const wideRef = useRef(true);
-  const pageRef = useRef(0);
-  const bookmarkTurnId = useRef(0);
+  const spreadRef = useRef(0);
+  const stepper = useRef<number | undefined>(undefined);
   const swipe = useRef<{ x: number; y: number } | null>(null);
 
   const spreadOf = useCallback((page: number, w: boolean) => (w ? Math.ceil(page / 2) : page), []);
   const pageOf = useCallback((s: number, w: boolean) => (w ? (s === 0 ? 0 : Math.min(2 * s, n - 1)) : s), [n]);
-  const spread = spreadOf(view.page, wide);
-  const lifting = view.air;
 
-  const clearTurns = useCallback(() => {
-    Object.values(liftTimers.current).forEach(id => window.clearTimeout(id));
-    liftTimers.current = {};
+  // Sends the book to a spread with the leaves in between turning.
+  const fly = useCallback((next: number) => {
+    const prev = spreadRef.current;
+    if (prev === next) return;
+    spreadRef.current = next;
+    const leaves = Array.from({ length: Math.abs(next - prev) }, (_, i) => Math.min(prev, next) + i);
+    // A jump over several pages is a cut: those leaves change sides without turning.
+    const cut = leaves.length > 1;
+    setView(v => ({
+      spread: next,
+      air: cut ? v.air : [...v.air.filter(k => !leaves.includes(k)), ...leaves],
+      snap: cut ? leaves : [],
+    }));
+    if (!cut) leaves.forEach(leaf => {
+      window.clearTimeout(liftTimers.current[leaf]);
+      liftTimers.current[leaf] = window.setTimeout(
+        () => setView(v => ({ ...v, air: v.air.filter(k => k !== leaf) })), TURN_MS + 100);
+    });
   }, []);
 
-  // Commit the destination in one render. The bookmark turn is a decorative sheet.
-  const goToPage = useCallback((page: number, animateBookmark = false) => {
-    const previous = pageRef.current;
-    clearTurns();
-    pageRef.current = page;
-    const bookmarkTurn: BookmarkTurn | undefined = animateBookmark && page !== previous
-      && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
-      ? { id: ++bookmarkTurnId.current, direction: page > previous ? 'forward' : 'backward' }
-      : undefined;
-    setView({ page, air: [], jump: true, bookmarkTurn });
-  }, [clearTurns]);
-
-  const goToSection = useCallback((page: number) => goToPage(page, true), [goToPage]);
-
+  // Moves to a spread. Long jumps riffle: the first and last few pages turn, the middle ones are skipped unseen.
   const goToSpread = useCallback((target: number) => {
-    const w = wideRef.current;
-    const max = w ? n / 2 : n - 1;
+    const max = wideRef.current ? n / 2 : n - 1;
     const to = Math.max(0, Math.min(max, target));
-    const from = spreadOf(pageRef.current, w);
-    if (to === from) return;
-    const page = pageOf(to, w);
-    if (Math.abs(to - from) > 1 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      goToPage(page);
+    window.clearInterval(stepper.current);
+    const from = spreadRef.current;
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced || Math.abs(to - from) <= 1) {
+      if (reduced) { spreadRef.current = to; setView({ spread: to, air: [], snap: [] }); } else fly(to);
       return;
     }
+    const dir = to > from ? 1 : -1;
+    const HEAD = 3, TAIL = 4;
+    const dist = Math.abs(to - from);
+    const stops: number[] = [];
+    if (dist <= HEAD + TAIL + 1) for (let i = 1; i <= dist; i++) stops.push(from + dir * i);
+    else {
+      for (let i = 1; i <= HEAD; i++) stops.push(from + dir * i);
+      for (let i = TAIL; i >= 0; i--) stops.push(to - dir * i);
+    }
+    let at = 0;
+    stepper.current = window.setInterval(() => {
+      fly(stops[at++]);
+      if (at >= stops.length) window.clearInterval(stepper.current);
+    }, 150);
+  }, [n, fly]);
 
-    const leaf = Math.min(from, to);
-    pageRef.current = page;
-    setView(v => ({ page, air: [...v.air.filter(k => k !== leaf), leaf], jump: false }));
-    window.clearTimeout(liftTimers.current[leaf]);
-    liftTimers.current[leaf] = window.setTimeout(() => {
-      delete liftTimers.current[leaf];
-      setView(v => ({ ...v, air: v.air.filter(k => k !== leaf) }));
-    }, TURN_MS + 100);
-  }, [n, spreadOf, pageOf, goToPage]);
-
-  const turnPage = useCallback((direction: number) => {
-    goToSpread(spreadOf(pageRef.current, wideRef.current) + direction);
-  }, [goToSpread, spreadOf]);
+  const goToPage = useCallback((page: number) => goToSpread(spreadOf(page, wideRef.current)), [goToSpread, spreadOf]);
 
   // Start-up: read the layout, restore a page from the address, then allow animation.
   useEffect(() => {
@@ -128,75 +128,73 @@ export default function Notebook({ content }: { content: Content }) {
     };
     wideRef.current = mq.matches;
     setWide(mq.matches);
-    goToPage(fromHash());
-    let raf: number;
-    const resumeAnimation = () => {
-      raf = requestAnimationFrame(() => {
-        raf = requestAnimationFrame(() => setReady(true));
-      });
-    };
-    resumeAnimation();
+    const first = spreadOf(fromHash(), mq.matches);
+    spreadRef.current = first;
+    setView({ spread: first, air: [], snap: [] });
+    const raf = requestAnimationFrame(() => requestAnimationFrame(() => setReady(true)));
 
     const onLayout = () => {
-      if (wideRef.current === mq.matches) return;
-      cancelAnimationFrame(raf);
-      setReady(false);
+      const before = wideRef.current;
+      if (before === mq.matches) return;
+      const page = pageOf(spreadRef.current, before);
       wideRef.current = mq.matches;
       setWide(mq.matches);
-      goToPage(pageRef.current);
-      resumeAnimation();
+      const s = spreadOf(page, mq.matches);
+      spreadRef.current = s;
+      setView({ spread: s, air: [], snap: [] });
     };
-    const onHash = () => goToPage(fromHash());
+    const onHash = () => goToSpread(spreadOf(fromHash(), wideRef.current));
     mq.addEventListener('change', onLayout);
     window.addEventListener('hashchange', onHash);
     return () => {
       cancelAnimationFrame(raf);
       mq.removeEventListener('change', onLayout);
       window.removeEventListener('hashchange', onHash);
-      clearTurns();
+      window.clearInterval(stepper.current);
+        Object.values(liftTimers.current).forEach(id => window.clearTimeout(id));
     };
-  }, [n, goToPage, clearTurns]);
+  }, [n, spreadOf, pageOf, goToSpread]);
 
   // Keep the address in step so a refresh or a shared link lands on the same page.
   useEffect(() => {
     if (!ready) return;
-    const page = view.page;
+    const page = pageOf(spread, wide);
     window.history.replaceState(null, '', page === 0 ? window.location.pathname + window.location.search : '#' + page);
-  }, [view.page, ready]);
+  }, [spread, wide, ready, pageOf]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.target instanceof Element && e.target.closest('input, textarea, select, dialog')) return;
-      if (e.key === 'ArrowRight') turnPage(1);
-      else if (e.key === 'ArrowLeft') turnPage(-1);
+      if (e.key === 'ArrowRight') goToSpread(spreadRef.current + 1);
+      else if (e.key === 'ArrowLeft') goToSpread(spreadRef.current - 1);
       else if (e.key === 'Home') goToSpread(0);
       else if (e.key === 'End') goToSpread(Infinity);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [goToSpread, turnPage]);
+  }, [goToSpread]);
 
   const maxSpread = wide ? n / 2 : n - 1;
   const left = wide && spread > 0 ? 2 * spread - 1 : null;
   const right = wide ? (2 * spread <= n - 1 ? 2 * spread : null) : spread;
   const shown = new Set([left, right].filter((x): x is number => x !== null));
   const leafCount = wide ? n / 2 : n;
-  const lead = defs[view.page];
+  const lead = defs[right ?? left ?? 0];
   const activeSection = sectionOf(lead) ?? (left !== null ? sectionOf(defs[left]) : undefined);
 
-  const name = activeSection ? LABEL[activeSection]
+  const named = [right, left].map(i => (i === null ? undefined : defs[i])).find(d => d && sectionOf(d));
+  const name = named ? LABEL[sectionOf(named)!]
     : lead.kind === 'cover' ? 'Cover' : lead.kind === 'back' ? 'Back cover' : lead.kind === 'toc' ? 'Contents'
       : lead.kind === 'intro' ? 'Inside cover' : 'Blank page';
   const numbers = [left, right].filter((x): x is number => x !== null).map(i => pageNumber(i, defs[i])).filter(Boolean);
   const status = numbers.length === 2 ? `${name}, pages ${numbers[0]} and ${numbers[1]}` : numbers.length === 1 ? `${name}, page ${numbers[0]}` : name;
 
   const pos = !wide ? 'open' : spread === 0 ? 'start' : spread === maxSpread ? 'end' : 'open';
-  const bookmarkTurn = view.bookmarkTurn;
 
   return (
     <div className="nb" data-mode={wide ? 'spread' : 'single'} data-ready={ready}>
-      <div className="shelf" data-pos={pos} data-jump={view.jump} data-front-turn={wide && lifting.includes(0)}
+      <div className="shelf" data-pos={pos} data-front-turn={wide && lifting.includes(0)}
            data-back-turn={wide && lifting.includes(leafCount - 1)}>
         <div
           className="stage"
@@ -210,39 +208,39 @@ export default function Notebook({ content }: { content: Content }) {
             if (!start) return;
             const dx = e.clientX - start.x;
             const dy = e.clientY - start.y;
-            if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) turnPage(dx < 0 ? 1 : -1);
+            if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) goToSpread(spreadRef.current + (dx < 0 ? 1 : -1));
           }}
         >
-          {Array.from({ length: leafCount }, (_, k) => {
-            const front = wide ? 2 * k : k;
-            const back = wide ? 2 * k + 1 : null;
-            const flipped = k < spread;
-            // Every page still in the air stays above the stacks, in the order it will land.
-            const base = flipped ? k : leafCount - k;
-            const z = lifting.includes(k) ? 500 + base : base;
-            const cls = ['leaf', flipped ? 'flipped' : '', Math.abs(k - spread) <= 3 || lifting.includes(k) ? 'near' : '', lifting.includes(k) ? 'lifting' : ''].join(' ');
-            return (
-              <div key={k} className={cls} style={{ zIndex: z }}>
-                <Face def={defs[front]} index={front} side="front" visible={shown.has(front)} starts={starts} go={goToSection} />
-                <Face def={back === null ? undefined : defs[back]} index={back ?? -1} side="back" visible={back !== null && shown.has(back)} starts={starts} go={goToSection} />
-              </div>
-            );
-          })}
-          {bookmarkTurn && <div key={bookmarkTurn.id} className="bookmark-turn" data-direction={bookmarkTurn.direction}
-            aria-hidden="true" onAnimationEnd={() => setView(current => current.bookmarkTurn?.id === bookmarkTurn.id
-              ? { ...current, bookmarkTurn: undefined }
-              : current)} />}
+          <div className="page-window">
+            <div className="page-stack">
+              {Array.from({ length: leafCount }, (_, k) => {
+                const front = wide ? 2 * k : k;
+                const back = wide ? 2 * k + 1 : null;
+                const flipped = k < spread;
+                const turning = lifting.includes(k);
+                const base = flipped ? k : leafCount - k;
+                const z = turning ? 500 + base : base;
+                const cls = ['leaf', flipped ? 'flipped' : '', turning || Math.abs(k - spread) <= 3 ? 'near' : '', turning ? 'lifting' : '', view.snap.includes(k) ? 'snap' : ''].join(' ');
+                return (
+                  <div key={k} className={cls} style={{ zIndex: z }}>
+                    <Face def={defs[front]} index={front} side="front" visible={shown.has(front)} starts={starts} go={goToPage} />
+                    <Face def={back === null ? undefined : defs[back]} index={back ?? -1} side="back" visible={back !== null && shown.has(back)} starts={starts} go={goToPage} />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
           <div className="rings" aria-hidden="true" />
           <button type="button" className="corner prev" aria-hidden="true" tabIndex={-1} hidden={spread === 0}
-                  onClick={() => turnPage(-1)} />
+                  onClick={() => goToSpread(spreadRef.current - 1)} />
           <button type="button" className="corner next" aria-hidden="true" tabIndex={-1} hidden={spread === maxSpread}
-                  onClick={() => turnPage(1)} />
+                  onClick={() => goToSpread(spreadRef.current + 1)} />
           <div className="ribbon" aria-hidden="true" />
         </div>
         <div className="tabs" role="group" aria-label="Sections">
           {SECTIONS.map(s => (
             <button key={s.id} type="button" data-section={s.id} aria-current={activeSection === s.id ? 'true' : undefined}
-                    onClick={() => goToSection(starts[s.id])}>
+                    onClick={() => goToPage(starts[s.id])}>
               {s.label}
             </button>
           ))}
@@ -250,11 +248,11 @@ export default function Notebook({ content }: { content: Content }) {
       </div>
 
       <div className="controls">
-        <button type="button" className="flip" disabled={spread === 0} onClick={() => turnPage(-1)}>
+        <button type="button" className="flip" disabled={spread === 0} onClick={() => goToSpread(spreadRef.current - 1)}>
           Previous page
         </button>
         <p className="status" aria-live="polite">{status}</p>
-        <button type="button" className="flip" disabled={spread === maxSpread} onClick={() => turnPage(1)}>
+        <button type="button" className="flip" disabled={spread === maxSpread} onClick={() => goToSpread(spreadRef.current + 1)}>
           Next page
         </button>
       </div>
