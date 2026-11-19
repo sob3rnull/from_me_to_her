@@ -228,9 +228,9 @@ export default function Notebook({ content }: { content: Content }) {
                   </div>
                 );
               })}
+              <div className="rings" aria-hidden="true"><span className="ring-front" /></div>
             </div>
           </div>
-          <div className="rings" aria-hidden="true" />
           <button type="button" className="corner prev" aria-hidden="true" tabIndex={-1} hidden={spread === 0}
                   onClick={() => goToSpread(spreadRef.current - 1)} />
           <button type="button" className="corner next" aria-hidden="true" tabIndex={-1} hidden={spread === maxSpread}
