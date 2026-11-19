@@ -75,19 +75,27 @@ export default function Notebook({ content }: { content: Content }) {
     const prev = spreadRef.current;
     if (prev === next) return;
     spreadRef.current = next;
-    const leaves = Array.from({ length: Math.abs(next - prev) }, (_, i) => Math.min(prev, next) + i);
-    // A jump over several pages is a cut: those leaves change sides without turning.
-    const cut = leaves.length > 1;
+    const first = Math.min(prev, next);
+    const count = Math.abs(next - prev);
+    if (count > 1) {
+      // Settle the leaves from the old spread before revealing the other end of the riffle.
+      Object.values(liftTimers.current).forEach(id => window.clearTimeout(id));
+      liftTimers.current = {};
+      const skipped = Array.from({ length: count }, (_, i) => first + i);
+      setView(v => ({ spread: next, air: [], snap: [...v.air, ...skipped] }));
+      return;
+    }
+
     setView(v => ({
       spread: next,
-      air: cut ? v.air : [...v.air.filter(k => !leaves.includes(k)), ...leaves],
-      snap: cut ? leaves : [],
+      air: [...v.air.filter(k => k !== first), first],
+      snap: [],
     }));
-    if (!cut) leaves.forEach(leaf => {
-      window.clearTimeout(liftTimers.current[leaf]);
-      liftTimers.current[leaf] = window.setTimeout(
-        () => setView(v => ({ ...v, air: v.air.filter(k => k !== leaf) })), TURN_MS + 100);
-    });
+    window.clearTimeout(liftTimers.current[first]);
+    liftTimers.current[first] = window.setTimeout(() => {
+      delete liftTimers.current[first];
+      setView(v => ({ ...v, air: v.air.filter(k => k !== first) }));
+    }, TURN_MS + 100);
   }, []);
 
   // Moves to a spread. Long jumps riffle: the first and last few pages turn, the middle ones are skipped unseen.
@@ -131,17 +139,29 @@ export default function Notebook({ content }: { content: Content }) {
     const first = spreadOf(fromHash(), mq.matches);
     spreadRef.current = first;
     setView({ spread: first, air: [], snap: [] });
-    const raf = requestAnimationFrame(() => requestAnimationFrame(() => setReady(true)));
+    let raf: number;
+    const resumeAnimation = () => {
+      raf = requestAnimationFrame(() => {
+        raf = requestAnimationFrame(() => setReady(true));
+      });
+    };
+    resumeAnimation();
 
     const onLayout = () => {
       const before = wideRef.current;
       if (before === mq.matches) return;
+      window.clearInterval(stepper.current);
+      Object.values(liftTimers.current).forEach(id => window.clearTimeout(id));
+      liftTimers.current = {};
+      cancelAnimationFrame(raf);
+      setReady(false);
       const page = pageOf(spreadRef.current, before);
       wideRef.current = mq.matches;
       setWide(mq.matches);
       const s = spreadOf(page, mq.matches);
       spreadRef.current = s;
       setView({ spread: s, air: [], snap: [] });
+      resumeAnimation();
     };
     const onHash = () => goToSpread(spreadOf(fromHash(), wideRef.current));
     mq.addEventListener('change', onLayout);
@@ -151,7 +171,7 @@ export default function Notebook({ content }: { content: Content }) {
       mq.removeEventListener('change', onLayout);
       window.removeEventListener('hashchange', onHash);
       window.clearInterval(stepper.current);
-        Object.values(liftTimers.current).forEach(id => window.clearTimeout(id));
+      Object.values(liftTimers.current).forEach(id => window.clearTimeout(id));
     };
   }, [n, spreadOf, pageOf, goToSpread]);
 
@@ -194,7 +214,8 @@ export default function Notebook({ content }: { content: Content }) {
 
   return (
     <div className="nb" data-mode={wide ? 'spread' : 'single'} data-ready={ready}>
-      <div className="shelf" data-pos={pos}>
+      <div className="shelf" data-pos={pos} data-front-turn={wide && lifting.includes(0)}
+           data-back-turn={wide && lifting.includes(leafCount - 1)}>
         <div
           className="stage"
           onPointerDown={e => {
@@ -217,7 +238,7 @@ export default function Notebook({ content }: { content: Content }) {
             // Every page still in the air stays above the stacks, in the order it will land.
             const base = flipped ? k : leafCount - k;
             const z = lifting.includes(k) ? 500 + base : base;
-            const cls = ['leaf', flipped ? 'flipped' : '', Math.abs(k - spread) <= 3 ? 'near' : '', lifting.includes(k) ? 'lifting' : '', view.snap.includes(k) ? 'snap' : ''].join(' ');
+            const cls = ['leaf', flipped ? 'flipped' : '', Math.abs(k - spread) <= 3 || lifting.includes(k) ? 'near' : '', lifting.includes(k) ? 'lifting' : '', view.snap.includes(k) ? 'snap' : ''].join(' ');
             return (
               <div key={k} className={cls} style={{ zIndex: z }}>
                 <Face def={defs[front]} index={front} side="front" visible={shown.has(front)} starts={starts} go={goToPage} />
