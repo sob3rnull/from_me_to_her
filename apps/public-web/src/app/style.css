@@ -105,7 +105,6 @@ footer { padding-top: 14px; font-size: 0.95rem; color: var(--chrome-soft); text-
 }
 .nb[data-mode='single'] .leaf { left: 0; width: 100%; }
 .leaf.near { visibility: visible; will-change: transform; }
-.leaf.snap, .leaf.snap.near { transition: none !important; }
 .leaf.flipped { transform: rotateY(-180deg); }
 @media (prefers-reduced-motion: no-preference) {
   .shelf { transition: transform var(--turn) var(--ease); }
@@ -250,6 +249,10 @@ footer { padding-top: 14px; font-size: 0.95rem; color: var(--chrome-soft); text-
 .nb[data-mode='single'] .tabs { position: static; flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 16px 0 0; }
 .nb[data-mode='single'] .tabs button { writing-mode: horizontal-tb; padding: 6px 10px; border-radius: 7px; }
 .nb[data-mode='single'] .tabs button:hover, .nb[data-mode='single'] .tabs button[aria-current='true'] { transform: translateY(-2px); }
+/* The destination pages and their book edges switch in the same frame. */
+.shelf[data-jump='true'],
+.shelf[data-jump='true'] :is(.leaf, .ribbon, .tabs),
+.shelf[data-jump='true'] :is(.stage, .corner)::before { transition: none; }
 @media (prefers-reduced-motion: reduce) {
   .tabs button, .corner::before { transition: none; }
 }
