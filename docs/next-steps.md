@@ -1,12 +1,6 @@
 # What to do next
 
-This guide starts from the existing Windows checkout and the hardening milestone
-in commit `9360a79`. The immediate task is to try the working demo, check the
-owner/reader behavior, and review the current PR. The next implementation milestone
-is private image attachments, followed by verified backup/restore.
-
-Use fictional content until backup/restore and live-host validation are complete.
-The local application works; a public production service has not been deployed.
+The [public notebook](https://somewhere-to-put-it.vercel.app/) is live. The private archive has a working local V1 and a CI-tested HTTPS configuration. Its next feature is private image attachments (step 8), followed by backup and restore (step 9). Use fictional archive records until the restore drill and private-host validation are complete.
 
 ## 1. Open the right project
 
@@ -19,18 +13,9 @@ git branch --show-current
 git log -1 --oneline
 ```
 
-The current branch is `feat/v1-foundation`. An empty `git status --short` means
-the working tree is clean. The documentation commit will be newer than `9360a79`.
+Use `main` for the merged implementation. The V1 foundation and notebook redesign are already merged. On a clean checkout, run `git switch main` then `git pull --ff-only`. If Git reports local changes or divergence, inspect them first.
 
-This machine already has Node 24, Python 3.12, `.venv`, the demo database and its
-encryption-key file. You do not need to create another environment or seed again.
-Docker is not required for the local demo.
-
-On a second machine, clone the repository and check out `feat/v1-foundation` while
-the PR is unmerged. Follow [local development](local-development.md) for first-time
-dependency installation and seeding. Do not copy someone else's real secrets into
-that checkout. If updating an existing clean checkout, use `git pull --ff-only`;
-stop and inspect if Git reports local changes or divergence.
+On a fresh machine, follow [local development](local-development.md) to install dependencies and seed the demo once. After pulling changes to the lockfile, stop local dev servers and run `npm.cmd ci` from the root before building. Docker is optional for the SQLite demo.
 
 ## 2. Prepare the existing demo database
 
@@ -213,22 +198,13 @@ npm.cmd ci
 Create `.venv` with `python -m venv .venv` only on a fresh checkout where it does
 not already exist. Stop development servers before reinstalling dependencies.
 
-## 7. Review the current PR
+## 7. Check the merged baseline
 
-Open [PR #1](https://github.com/sob3rnull/from_me_to_her/pull/1).
+On 19 November 2026, the public Vercel URL returned HTTP 200 and served the notebook. PR #12 was merged at `3368e67`. The local API suite passed 26 tests and skipped the PostgreSQL test because no disposable PostgreSQL service was configured. The matching CI run passed, including PostgreSQL and browser checks. [Verify archive run](https://github.com/sob3rnull/from_me_to_her/actions/runs/44530130973).
 
-1. Review **Files changed**, especially the authentication code, tests and docs.
-2. Confirm the checks are green for the latest code commit. The hardening commit
-   `9360a79` passed the API, PostgreSQL and web jobs.
-3. Complete the manual owner/reader checks above and note any behavior you dislike.
-4. Keep the PR as a draft while you are still reviewing. When satisfied, use
-   **Ready for review**, then the repository's merge option.
+Both frontend builds passed locally after installing the locked dependencies. The build warned about Next.js 16.4.2, and `npm.cmd audit --omit=dev` reported a moderate finding for Next.js. Review the advisories and test a patched release before deploying the vault.
 
-Merging is a repository decision; it does not deploy the application. There is no
-requirement to merge before trying the existing branch. Do not delete a branch with
-unmerged work. On this OneDrive checkout, Git's ignore rules also do not control
-OneDrive synchronization: choose an appropriate private location for future real
-data and key material instead of assuming `.gitignore` makes it local-only.
+For private archive work, use fictional entries to repeat the owner and reader checks above. Keep future real data and keys outside this OneDrive checkout because ignored files can still sync.
 
 ## 8. Build private image attachments next
 
@@ -237,7 +213,7 @@ it on. Keep the next change limited to attaching images to an existing entry.
 
 The intended workflow is:
 
-`Owner saves entry → uploads image → API validates and stores it privately → permitted viewer requests it through the API`
+`Owner saves entry â†’ uploads image â†’ API validates and stores it privately â†’ permitted viewer requests it through the API`
 
 Implementation sequence:
 
@@ -300,16 +276,7 @@ Do not enable permanent deletion or treat untested exports as recoverable backup
 
 ## 10. Prepare hosting and real accounts after those milestones
 
-The current deployment template assumes Caddy, FastAPI and the Next vault run on
-one trusted host, with API/Next bound to loopback. The public site is a static
-export. PostgreSQL and future object storage must remain private.
-
-Before writing host-specific install commands, choose the host/OS, two public
-origins, private database/storage location, secret storage and backup destination.
-For example, `example.com` and `vault.example.com` illustrate separate origins;
-they are placeholders, not domains already configured for this project. Do not
-split the existing architecture across providers without explicitly planning the
-new network and proxy boundaries.
+The public notebook already runs on Vercel. The checked-in Caddy template is a reference for a single trusted host that can also serve the public export. For a separate private vault deployment, choose the vault origin and host, private PostgreSQL and storage locations, secret storage and backup destination. Keep FastAPI and the Next.js vault bound to loopback behind Caddy. The following sequence describes the template configuration.
 
 The deployment sequence will be:
 

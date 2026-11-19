@@ -1,8 +1,10 @@
 # V1 architecture and implementation status
 
-Public site (static Next.js export) → link to vault (Next.js) → same-origin /api
-proxy → FastAPI modular backend → database. Private object storage and the
-scheduled backup/lifecycle process are the next infrastructure components.
+The public notebook is a static Next.js export served on Vercel. Its page assembles the public writing from `apps/public-web/src/lib/writing.ts`. Treat this file as published content. [Live notebook](https://somewhere-to-put-it.vercel.app/).
+
+The footer prompt can open a vault URL sealed at build time. Anyone who already knows the URL can go directly to the vault. The vault authenticates each session and the API checks access to each entry.
+
+The private deployment template routes requests through Caddy. It sends vault pages to Next.js and same-origin `/api/*` requests to FastAPI, which uses SQLAlchemy to access the database. The local HTTP demo uses a Next.js rewrite for the API. Live hosting for this private stack remains unverified.
 
 The local demo uses SQLite to avoid requiring Docker for a local trial.
 SQLAlchemy models and Alembic migrations support PostgreSQL, with a dedicated CI
@@ -35,13 +37,10 @@ key and refuses demo accounts. See [account setup](account-setup.md).
 
 ## Next milestones
 
-1. Complete live-host validation and production security review. Enrollment,
-   recovery, encryption-key rotation, nonce-based vault CSP and an isolated
-   Caddy HTTPS rehearsal are implemented. CI runs the rehearsal with PostgreSQL;
-   public DNS, public certificates and host firewall validation need a real host.
-   See [deployment hardening](deployment-hardening.md).
-2. Private image storage with validated uploads and authorized downloads.
-3. Encrypted exports, manifests, integrity checks, and isolated restore tests.
+1. Add private image storage with validated uploads and authorized downloads.
+2. Implement encrypted exports, integrity manifests and an isolated restore drill.
+3. Validate the private stack on its intended host before adding real archive records. CI exercises Caddy, HTTPS and PostgreSQL. Public DNS, certificate renewal and firewall restrictions require host-specific checks. See [deployment hardening](deployment-hardening.md).
+
 4. Owner-only 90-day keepalive and a resumable lifecycle state machine. Disable
    access only after verified restore; permanent deletion remains simulated.
 5. First isolated IDOR lab, documentation and regression test. Chat links later.

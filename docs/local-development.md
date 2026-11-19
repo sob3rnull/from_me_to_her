@@ -1,13 +1,8 @@
-# Local development: first working slice
+# Run the notebook and vault locally
 
-This milestone is for fictional local data only. It includes the public page,
-owner/reader login, weighted reader gates, password + TOTP, entries, promises,
-draft/share editing, database migrations, and security regression tests.
+The public notebook is already [live on Vercel](https://somewhere-to-put-it.vercel.app/). Use the local public server to preview changes to the notebook and test its footer entrance against the demo vault.
 
-Account enrollment/recovery and encrypted TOTP storage are now implemented; see
-[account setup](account-setup.md). Production deployment, uploads, backup/restore,
-keepalive, deletion, chat and lab exercises remain unfinished. Do not put real
-archive content into this development database.
+Use fictional records for the local archive. The vault supports owner and reader sign-in, weighted reader gates, password and TOTP, draft sharing and promise editing. See [account setup](account-setup.md) for enrollment and recovery, and [next steps](next-steps.md) for private images, backup and restore.
 
 ## Setup (PowerShell, repository root)
 

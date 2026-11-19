@@ -1,11 +1,14 @@
 # from_me_to_her
 
-## Development status
+## Project status · 19 November 2026
 
-The first local development slice is implemented: public page, staged reader
-authentication, owner login, private drafts/shared entries, and promise editing.
-Use fictional data only; production security, uploads, backups, lifecycle and lab
-exercises remain future milestones.
+The public notebook is live on Vercel. It includes notes, dreams, fragments and unfinished writing, with page turns, section tabs and a theme switch. [Open the notebook](https://somewhere-to-put-it.vercel.app/).
+
+The private vault is at the **working V1 demo** stage. The owner can edit drafts, share entries and track promises. The reader signs in through staged gates and sees shared entries. Enrollment, account recovery and an HTTPS rehearsal are implemented. Live private-vault hosting remains unverified.
+
+The next archive milestone is **private image attachments**, followed by encrypted backup and a tested restore. Keep private archive content and credentials outside Git. The public notebook's writing ships to every visitor.
+
+Reviewed `main` at `3368e67` (PR #12, notebook binding). The API, PostgreSQL and web checks passed for that revision. [GitHub Actions run](https://github.com/sob3rnull/from_me_to_her/actions/runs/44530130973)
 
 - [Run locally and test](docs/local-development.md)
 - [What to do next: step-by-step guide](docs/next-steps.md)
